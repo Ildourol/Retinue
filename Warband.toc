@@ -1,0 +1,15 @@
+## Interface: 11200
+## Title: Warband
+## Notes: Command your account bots - roster, bags, spells and strategies
+## Version: 1.0
+## SavedVariables: UnBotConfig
+
+Localization.lua
+Data.lua
+Core.lua
+UI.lua
+Roster.lua
+Items.lua
+Strategy.lua
+Spells.lua
+Commands.lua
