@@ -1,7 +1,12 @@
 # Warband
 
-A bot command panel for **WoW 1.12 (Vanilla)** servers running
+A bot command panel for servers running
 [mangosbot](https://github.com/ike3/mangosbot-bots).
+
+Developed and tested against **Turtle WoW 1.18.1**, whose client is built on
+**1.12 (Vanilla)**. It targets interface 11200 and uses only Vanilla APIs, so
+it should work on other 1.12 servers too — with one caveat, see
+[Client differences](#client-differences).
 
 Control your own account characters as bots: bring them online, invite them,
 inspect their bags, cast their spells and switch their combat strategies —
@@ -56,9 +61,17 @@ shortcuts open the same windows:
 
 Diagnostics: `/warband debug`, `/warband checkapi`, `/warband capture`.
 
-## Notes on 1.12
+## Client differences
 
-Several things work differently here than on later clients, and the code is
+**Item icons are the one Turtle-specific part.** Turtle's `GetItemInfo`
+returns ten values with the texture in slot 9; stock 1.12 returns eight and no
+texture at all. On a plain 1.12 server the bag window therefore falls back to
+[AtlasLoot](https://github.com/AtlasLootClassic)'s id → icon table when that
+addon is installed, and to a generic icon otherwise. Names, tooltips and every
+action keep working either way, because they come from the chat link rather
+than the client's item cache.
+
+Other things that differ from later expansions, all handled in the code and
 commented where it matters:
 
 - script handlers get no arguments — the globals `this`, `event` and `arg1`
@@ -67,7 +80,16 @@ commented where it matters:
 - `InviteByName` and `UninviteByName`, not the later `InviteUnit` variants
 - `UnitInParty` raises an error on a name that is not a nearby unit, so group
   membership is checked by walking the party and raid slots
+- `GameTooltip:SetHyperlink` wants a bare `item:id:0:0:0`, not a full chat link
 - bot actions need a `d` prefix (`d add all loot`), plain commands do not
+
+## Server differences
+
+Command availability varies between mangosbot builds. On Turtle 1.18.1 only
+`.bot add`, `.bot remove`, `.bot list` and `.bot init=<quality>` exist —
+`refresh`, `levelup` and `random` do not, and `.appear` is GM-only. Strategy
+names are never hardcoded: the addon reads them from the bot's own in-game
+help, so they always match whatever server you are on.
 
 ## Credits
 

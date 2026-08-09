@@ -1,6 +1,6 @@
 ## Interface: 11200
 ## Title: Warband
-## Notes: Command your account bots - roster, bags, spells and strategies
+## Notes: Command your account bots - roster, bags, spells and strategies. For mangosbot servers; developed on Turtle WoW 1.18.1.
 ## Version: 1.0
 ## SavedVariables: UnBotConfig
 
