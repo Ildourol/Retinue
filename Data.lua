@@ -133,28 +133,63 @@ UnBotCommandType = {
 }
 
 -- Which of the 10 command-bar groups a command belongs to.
+-- Role shortcuts intentionally stay on their own fixed Role button.
+--
+--   1 Combat                 6 Training & Abilities
+--   2 Movement               7 Party Management
+--   3 Support                8 Strategy & AI
+--   4 Inventory              9 Formation
+--   5 Info & Status           10 Roster & Social
 UnBotCommandToGroups = {
     [0] = 0,
-    [1] = 1, [2] = 1, [3] = 1, [4] = 1, [5] = 9, [6] = 9, [7] = 9, [8] = 9,
-    [9] = 9, [10] = 9, [11] = 7, [12] = 1, [13] = 1, [14] = 1, [15] = 2,
-    [16] = 2, [17] = 2, [18] = 2, [19] = 2, [20] = 8, [21] = 8, [22] = 8,
-    [23] = 8, [24] = 2, [25] = 3, [26] = 3, [27] = 3, [28] = 3, [29] = 3,
-    [30] = 3, [31] = 3, [32] = 4, [33] = 4, [34] = 4, [35] = 4, [36] = 4,
-    [37] = 4, [38] = 5, [39] = 5, [40] = 5, [41] = 5, [42] = 5, [43] = 5,
-    [44] = 5, [45] = 5, [46] = 5, [47] = 6, [48] = 6, [49] = 6, [50] = 6,
-    [51] = 6, [52] = 6, [53] = 6, [54] = 8, [55] = 8, [56] = 8, [57] = 8,
-    [58] = 8, [59] = 8, [60] = 8, [61] = 8, [62] = 6, [63] = 6, [64] = 7,
-    [65] = 7, [66] = 7, [67] = 7, [68] = 7, [69] = 8, [70] = 6, [71] = 6,
-    [72] = 10, [73] = 8, [74] = 10, [75] = 6, [76] = 6, [77] = 10, [78] = 10,
-    [79] = 10, [80] = 10, [81] = 7, [82] = 1, [83] = 1, [84] = 9, [85] = 9,
-    [86] = 1, [87] = 1, [88] = 10, [89] = 2,
-    -- 69 (spells) sits with talents in group 9 so the spell window can be the
-    -- default there; buffing is upkeep, so it joins group 2.
-    [69] = 9,
-    [90] = 2, [91] = 4, [92] = 4, [93] = 7, [94] = 7, [95] = 7,
-    [96] = 9, [97] = 2, [98] = 8, [99] = 2, [100] = 6, [101] = 6,
-    -- 103 goes with loot in group 2: it acts on the world, not on bag items.
-    [102] = 8, [103] = 2,
+    -- combat: attack, retreat and stop
+    [25] = 1, [26] = 1, [27] = 1, [28] = 1, [29] = 1, [30] = 1, [31] = 1,
+    [32] = 1, [33] = 1, [34] = 1, [35] = 1, [36] = 1, [37] = 1,
+    [70] = 1, [91] = 1, [92] = 1,
+    -- movement
+    [15] = 2, [16] = 2, [47] = 2, [76] = 2, [100] = 2,
+    -- support and upkeep
+    [18] = 3, [19] = 3, [24] = 3, [55] = 3, [56] = 3, [57] = 3,
+    [58] = 3, [59] = 3, [60] = 3, [61] = 3, [80] = 3, [81] = 3,
+    [89] = 3, [90] = 3, [98] = 3, [99] = 3, [103] = 3,
+    -- inventory and item maintenance
+    [11] = 4, [64] = 4, [65] = 4, [66] = 4, [67] = 4, [68] = 4,
+    [93] = 4, [94] = 4, [95] = 4,
+    -- information and status
+    [20] = 5, [21] = 5, [22] = 5, [23] = 5, [62] = 5, [63] = 5,
+    [72] = 5,
+    -- training and abilities
+    [5] = 6, [6] = 6, [7] = 6, [8] = 6, [17] = 6, [69] = 6,
+    [96] = 6, [97] = 6,
+    -- party management
+    [1] = 7, [2] = 7, [3] = 7, [4] = 7, [12] = 7, [13] = 7, [14] = 7,
+    [71] = 7, [73] = 7, [82] = 7, [83] = 7, [86] = 7, [87] = 7,
+    [101] = 7,
+    -- strategy, AI and target behaviour
+    [9] = 8, [10] = 8, [48] = 8, [49] = 8, [50] = 8, [51] = 8,
+    [52] = 8, [53] = 8, [54] = 8, [75] = 8, [84] = 8, [85] = 8,
+    -- formation
+    [38] = 9, [39] = 9, [40] = 9, [41] = 9, [42] = 9, [43] = 9,
+    [44] = 9, [45] = 9, [46] = 9,
+    -- account roster and social/group checks
+    [74] = 10, [77] = 10, [78] = 10, [79] = 10, [88] = 10,
+    -- 102 is handled by the separate Role button, not a group window.
+    [102] = 0,
+}
+
+-- Display order inside each group.  Any future command not listed here is
+-- appended using its command ID, so adding an action cannot hide it.
+UnBotCommandOrder = {
+    [1] = { 32, 91, 33, 34, 35, 36, 37, 92, 70, 26, 27, 28, 29, 30, 25, 31 },
+    [2] = { 15, 16, 47, 76, 100 },
+    [3] = { 80, 99, 90, 24, 89, 103, 98, 18, 19, 81 },
+    [4] = { 64, 93, 66, 68, 94, 67, 95, 65 },
+    [5] = { 22, 23, 62, 63, 20, 21 },
+    [6] = { 96, 69, 97, 17 },
+    [7] = { 87, 86, 83, 82, 3, 2, 13, 14, 101, 71 },
+    [8] = { 54, 85, 9, 10 },
+    [9] = { 46, 38, 42, 43, 40, 41, 39, 45, 44 },
+    [10] = { 74, 77, 88 },
 }
 
 -- Icon per command.
@@ -310,19 +345,19 @@ UnBotIconFiles = {
     [84] = 615, [85] = 2065, [86] = 74, [87] = 3598, [88] = 174, [89] = 103,
 }
 
--- Default command on each group button. The four window commands sit on the
--- bar itself so they are one click away; right-clicking any entry in a group's
--- popup replaces the default and remembers it.
+-- Legacy default commands retained for saved-variable compatibility.  The
+-- current command bar uses these ten slots as labelled group launchers, so
+-- the commands themselves are now selected inside each group's window.
 UnBotGroupDefault = {
-    [1] = 13,   -- summon party
+    [1] = 91,   -- attack YOUR target
     [2] = 15,   -- follow
-    [3] = 25,   -- flee
-    [4] = 91,   -- attack YOUR target
-    [5] = 38,   -- formation
-    [6] = 47,   -- hold position
-    [7] = 64,   -- bags window
+    [3] = 80,   -- ready check
+    [4] = 64,   -- bags window
+    [5] = 22,   -- party status
+    [6] = 69,   -- spell window
+    [7] = 13,   -- party management
     [8] = 54,   -- strategy window
-    [9] = 69,   -- spell window
+    [9] = 38,   -- formation
     [10] = 74,  -- account roster window
 }
 

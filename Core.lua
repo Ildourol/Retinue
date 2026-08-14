@@ -130,6 +130,11 @@ end
 
 function UnBot:CloseAll()
     self:HideAllSubFrames()
+    if self.HideActions then
+        self:HideActions()
+    elseif UnBotActionsFrame then
+        UnBotActionsFrame:Hide()
+    end
     if UnBotFrame then UnBotFrame:Hide() end
     self:Message(UnBotL.MSG.CLOSE_BAR)
 end

@@ -157,9 +157,12 @@ UnBotL.TT = {
     TARGET_TYPE  = "Target",
     CMD_SENT     = "Sends",
     LCLICK_RUN   = "Left-click: run",
-    RCLICK_GROUP = "Right-click: open group",
-    RCLICK_APPLY = "Right-click: set as group default",
-    RCLICK_CLOSE = "Right-click: close everything",
+    RCLICK_GROUP     = "Right-click: open group",
+    RCLICK_APPLY     = "Right-click: set as group default",
+    RCLICK_FAVORITE  = "Right-click: toggle favorite",
+    RCLICK_CLOSE     = "Right-click: close everything",
+    MINIMAP_SHOW = "Click to show command panel",
+    MINIMAP_HIDE = "Click to hide command panel",
     CMD_ID       = "Command id",
 }
 
