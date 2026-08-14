@@ -16,9 +16,14 @@ without typing chat commands.
 
 ## Features
 
-**Command bar** — ten grouped buttons plus role shortcuts. Right-click a group
-to open its popup, right-click an entry there to move it onto the bar. Your
-layout is saved.
+**Command bar** — ten labelled command-group buttons plus role shortcuts. Click
+any group to open one movable window of compact icon-and-label command
+buttons. Selecting another group reuses that same window. Right-click a
+command to toggle it in the Favorites strip above the bar; removing requires
+confirmation, and the strip has a separate Clear button for clearing everything.
+Overflow opens the complete Favorites list. The windows contain the same commands that were
+previously hidden in icon-only right-click popups, so no command is lost. A minimap button
+shows or hides the entire panel.
 
 **Roster** — reads `.bot list` straight from the server, so your characters
 appear with the correct class automatically. Filter by class, then:
