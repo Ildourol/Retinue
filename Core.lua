@@ -179,6 +179,11 @@ function UnBot:MakeDraggable(frame)
         this:StopMovingOrSizing()
         UnBot:SaveFramePosition(this)
     end)
+    frame:SetScript("OnHide", function()
+        if type(UnBot.ClearMainButtonHighlights) == "function" then
+            UnBot:ClearMainButtonHighlights()
+        end
+    end)
 end
 
 --=========================================================================--
@@ -505,6 +510,9 @@ capture:SetScript("OnEvent", function()
     -- learn strategy names whenever they appear, capture on or off
     if event == "CHAT_MSG_WHISPER" then
         UnBot:ParseStrategyList(arg1)
+        if type(UnBot.ParseCombatStrategies) == "function" then
+            UnBot:ParseCombatStrategies(arg2, arg1)
+        end
     end
 end)
 

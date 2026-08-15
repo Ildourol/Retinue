@@ -13,8 +13,8 @@ UnBotExecuteCommand = {
     [3] = ".bot init=green *",
     -- 4 (.bot refresh), 5 (.bot random) and 12 (.bot levelup) removed: this
     -- server does not know them. Only add / remove / list / init= work.
-    [9] = "reset botAI",
-    [10] = "reset botAI",
+    [9] = "reset ai",
+    [10] = "reset ai",
     -- 11 was the inspect-window integration. The Equip tab of the item window
     -- does the same job without hooking Blizzard's inspect UI.
     [13] = "summon",
@@ -56,8 +56,8 @@ UnBotExecuteCommand = {
     -- 50-53 (druid forms) and 55-61 (paladin auras and blessings) were guessed
     -- before the server told us its real names. The strategy editor and the
     -- spell window cover both properly now, so they no longer clutter the bar.
-    [62] = "co",                                -- show combat strategy
-    [63] = "co",
+    [62] = "co ?",                              -- show combat strategies
+    [63] = "co ?",
     -- Prefixes completed at runtime by handlers in Commands.lua.
     [70] = "combatstop",                        -- party chat, not a GM command
     [64] = "c",
@@ -74,7 +74,7 @@ UnBotExecuteCommand = {
     [77] = ".bot list",
     -- 72 (icon browser) and 78/79 (friend-list bots) dropped: the first was a
     -- development aid, the second does not exist in mangosbot.
-    [81] = "drink",
+    [81] = "d drink",
     [82] = ".bot remove *",
     [83] = ".bot add *",
     -- 84 was "naxx", a single raid strategy. All of them live in the strategy
@@ -135,17 +135,17 @@ UnBotCommandType = {
 -- Which of the 10 command-bar groups a command belongs to.
 -- Role shortcuts intentionally stay on their own fixed Role button.
 --
---   1 Combat                 6 Training & Abilities
+--   1 Combat                 6 Abilities
 --   2 Movement               7 Party Management
---   3 Support                8 Strategy & AI
+--   3 Support                8 Strategy
 --   4 Inventory              9 Formation
---   5 Info & Status           10 Roster & Social
+--   5 Info & Status           10 Roster
 UnBotCommandToGroups = {
     [0] = 0,
     -- combat: attack, retreat and stop
     [25] = 1, [26] = 1, [27] = 1, [28] = 1, [29] = 1, [30] = 1, [31] = 1,
     [32] = 1, [33] = 1, [34] = 1, [35] = 1, [36] = 1, [37] = 1,
-    [70] = 1, [91] = 1, [92] = 1,
+    [70] = 1, [92] = 1,
     -- movement
     [15] = 2, [16] = 2, [47] = 2, [76] = 2, [100] = 2,
     -- support and upkeep
@@ -171,8 +171,8 @@ UnBotCommandToGroups = {
     -- formation
     [38] = 9, [39] = 9, [40] = 9, [41] = 9, [42] = 9, [43] = 9,
     [44] = 9, [45] = 9, [46] = 9,
-    -- account roster and social/group checks
-    [74] = 10, [77] = 10, [78] = 10, [79] = 10, [88] = 10,
+    -- Group 10 opens the Player roster directly. Its commands stay defined
+    -- for the roster controls and saved favorites, but need no action window.
     -- 102 is handled by the separate Role button, not a group window.
     [102] = 0,
 }
@@ -180,16 +180,16 @@ UnBotCommandToGroups = {
 -- Display order inside each group.  Any future command not listed here is
 -- appended using its command ID, so adding an action cannot hide it.
 UnBotCommandOrder = {
-    [1] = { 32, 91, 33, 34, 35, 36, 37, 92, 70, 26, 27, 28, 29, 30, 25, 31 },
-    [2] = { 15, 16, 47, 76, 100 },
-    [3] = { 80, 99, 90, 24, 89, 103, 98, 18, 19, 81 },
-    [4] = { 64, 93, 66, 68, 94, 67, 95, 65 },
+    [1] = { 32, 92, 70, 33, 35, 34, 36, 37, 25, 31, 26, 28, 27, 29, 30 },
+    [2] = { 15, 16, 100, 47, 76 },
+    [3] = { 80, 90, 99, 81, 24, 89, 103, 98, 18, 19 },
+    [4] = { 64, 93, 66, 94, 68, 67, 95, 65 },
     [5] = { 22, 23, 62, 63, 20, 21 },
     [6] = { 96, 69, 97, 17 },
     [7] = { 87, 86, 83, 82, 3, 2, 13, 14, 101, 71 },
     [8] = { 54, 85, 9, 10 },
     [9] = { 46, 38, 42, 43, 40, 41, 39, 45, 44 },
-    [10] = { 74, 77, 88 },
+    [10] = {},
 }
 
 -- Icon per command.
@@ -349,7 +349,7 @@ UnBotIconFiles = {
 -- current command bar uses these ten slots as labelled group launchers, so
 -- the commands themselves are now selected inside each group's window.
 UnBotGroupDefault = {
-    [1] = 91,   -- attack YOUR target
+    [1] = 32,   -- attack your target
     [2] = 15,   -- follow
     [3] = 80,   -- ready check
     [4] = 64,   -- bags window
