@@ -95,20 +95,6 @@ local ROLE_ORDER = {
     "SHAMAN", "MAGE", "WARLOCK", "DRUID",
 }
 
--- Only send names the server actually reported for that class. If we have not
--- learned its list yet, send everything and let the bot sort it out.
-local function KnownOnly(classToken, names)
-    local class = CLASS_TOKEN[classToken]
-    local store = UnBot.config and UnBot.config.strategies
-    if not class or not store or not store[class] then return names end
-
-    local out = {}
-    for i = 1, table.getn(names) do
-        if store[class][names[i]] then table.insert(out, names[i]) end
-    end
-    return out
-end
-
 local function ForEachGroupMemberOfClass(classToken, func)
     local raid = GetNumRaidMembers()
     if raid > 0 then
@@ -124,31 +110,128 @@ local function ForEachGroupMemberOfClass(classToken, func)
     end
 end
 
+function UnBot:QueueRoleForBot(name, classToken, which, queryAfter)
+    local preset = ROLE_PRESETS[classToken]
+    local role = preset and preset[which]
+    if not role then return false end
+
+    -- Role presets use source-verified base strategy names. Do not filter them
+    -- through the cached help list: that list may contain only expanded names
+    -- such as "shadow pve", which previously dropped the required +shadow.
+    local off = role.off
+    local on = role.on
+    for i = 1, table.getn(off) do
+        self:QueueChat("co -"..off[i], "WHISPER", name)
+    end
+    for i = 1, table.getn(on) do
+        self:QueueChat("co +"..on[i], "WHISPER", name)
+    end
+    if queryAfter then self:QueueChat("co ?", "WHISPER", name) end
+    return true
+end
+
 function UnBot:ApplyRole(classToken, which)
     local preset = ROLE_PRESETS[classToken]
-    if not preset then return end
-    local role = preset[which]
+    local role = preset and preset[which]
     if not role then return end
-
-    local on  = KnownOnly(classToken, role.on)
-    local off = KnownOnly(classToken, role.off)
 
     local targets = 0
     ForEachGroupMemberOfClass(classToken, function(name)
-        targets = targets + 1
-        for i = 1, table.getn(off) do
-            self:QueueChat("co -"..off[i], "WHISPER", name)
-        end
-        for i = 1, table.getn(on) do
-            self:QueueChat("co +"..on[i], "WHISPER", name)
+        if self:QueueRoleForBot(name, classToken, which, false) then
+            targets = targets + 1
         end
     end)
 
     if targets == 0 then
         self:Message("No "..string.lower(classToken).." in your group")
     else
-        self:Message(role.label.." -> "..targets.." "..string.lower(classToken).."(s)")
+        local className = string.upper(string.sub(classToken, 1, 1))
+                          ..string.lower(string.sub(classToken, 2))
+        self:Message(className.." - "..role.label.." applied to "..targets.." bot(s)")
     end
+end
+
+local function IsGroupedName(name)
+    local raid = GetNumRaidMembers()
+    if raid > 0 then
+        for i = 1, raid do
+            if UnitName("raid"..i) == name then return true end
+        end
+    else
+        for i = 1, GetNumPartyMembers() do
+            if UnitName("party"..i) == name then return true end
+        end
+    end
+    return false
+end
+
+function UnBot:GetSelectedRoleTarget()
+    local name = UnitName("target")
+    local _, classToken = UnitClass("target")
+    if not name or name == UnitName("player") or not IsGroupedName(name) then return end
+    if not ROLE_PRESETS[classToken] then return end
+    return name, classToken
+end
+
+function UnBot:ApplySelectedRole(which)
+    local name, classToken = self:GetSelectedRoleTarget()
+    if not name then
+        self:Message("Select a supported bot in your party or raid")
+        return
+    end
+    local role = ROLE_PRESETS[classToken][which]
+    if self:QueueRoleForBot(name, classToken, which, false) then
+        if UnBotRoleFrame then
+            UnBotRoleFrame.statusText:SetText("Role change sent: "..role.label
+                                              .." - click Check role")
+        end
+        self:Message(role.label.." combat strategy applied to "..name)
+    end
+end
+
+function UnBot:ParseCombatStrategies(sender, msg)
+    if not sender or not msg then return false end
+    local _, _, list = string.find(msg, "Combat Strategies:%s*(.*)")
+    if not list then return false end
+
+    if not self.botCombatStrategies then self.botCombatStrategies = {} end
+    local record = { text = list, active = {} }
+    local iter = string.gmatch or string.gfind
+    for strategy in iter(list, "[^,]+") do
+        local clean = string.gsub(strategy, "^%s+", "")
+        clean = string.gsub(clean, "%s+$", "")
+        if clean ~= "" then record.active[clean] = true end
+    end
+    self.botCombatStrategies[sender] = record
+    if UnBotRoleFrame and UnBotRoleFrame:IsShown() then self:RefreshRoleTarget(false) end
+    return true
+end
+
+function UnBot:GetBotRoleLabel(name, classToken)
+    local record = self.botCombatStrategies and self.botCombatStrategies[name]
+    local preset = ROLE_PRESETS[classToken]
+    if not record or not preset then return "Not checked" end
+
+    local matches = {}
+    for _, which in ipairs({"primary", "secondary"}) do
+        local role = preset[which]
+        local matched = false
+        for i = 1, table.getn(role.on) do
+            local wanted = role.on[i]
+            for active in pairs(record.active) do
+                if active == wanted
+                   or string.find(" "..active.." ", " "..wanted.." ", 1, true) then
+                    matched = true
+                    break
+                end
+            end
+            if matched then break end
+        end
+        if matched then table.insert(matches, role.label) end
+    end
+    if table.getn(matches) == 0 then return "Custom / unknown" end
+    if table.getn(matches) > 1 then return "Mixed: "..table.concat(matches, ", ") end
+    return matches[1]
 end
 
 --=========================================================================--
@@ -316,15 +399,42 @@ function UnBot:ToggleRoleBar()
         UnBotRoleFrame:Hide()
     else
         UnBotRoleFrame:Show()
+        self:RefreshRoleTarget(false)
     end
+end
+
+function UnBot:RefreshRoleTarget(queryServer)
+    if not UnBotRoleFrame then return end
+    local name, classToken = self:GetSelectedRoleTarget()
+    if not name then
+        UnBotRoleFrame.targetName = nil
+        UnBotRoleFrame.targetText:SetText("Select a grouped bot")
+        UnBotRoleFrame.statusText:SetText("Current combat strategy: unavailable")
+        UnBotRoleFrame.primaryButton:Disable()
+        UnBotRoleFrame.secondaryButton:Disable()
+        UnBotRoleFrame.primaryButton:SetText("Primary")
+        UnBotRoleFrame.secondaryButton:SetText("Alternative")
+        return
+    end
+
+    local preset = ROLE_PRESETS[classToken]
+    UnBotRoleFrame.targetName = name
+    UnBotRoleFrame.targetText:SetText("Selected: "..name)
+    UnBotRoleFrame.statusText:SetText("Current combat strategy: "
+                                      ..self:GetBotRoleLabel(name, classToken))
+    UnBotRoleFrame.primaryButton:SetText(preset.primary.label)
+    UnBotRoleFrame.secondaryButton:SetText(preset.secondary.label)
+    UnBotRoleFrame.primaryButton:Enable()
+    UnBotRoleFrame.secondaryButton:Enable()
+    if queryServer then self:QueueChat("co ?", "WHISPER", name) end
 end
 
 function UnBot:CreateRoleFrame()
     local count = table.getn(ROLE_ORDER)
     local f = CreateFrame("Frame", "UnBotRoleFrame", UIParent)
-    f:SetWidth(96)
-    f:SetHeight(count * 22 + 44)
-    f:SetPoint("LEFT", UIParent, "LEFT", 40, 0)
+    f:SetWidth(220)
+    f:SetHeight(count * 22 + 142)
+    f:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
     self:MakeDraggable(f)
     self:RestoreFramePosition(f)
     f:SetBackdrop({
@@ -346,14 +456,52 @@ function UnBot:CreateRoleFrame()
     title:SetTextColor(1, 0.82, 0)
     title:SetText("Roles")
 
+    local targetText = f:CreateFontString(nil, "OVERLAY")
+    targetText:SetFont(UnBotFont, 11)
+    targetText:SetPoint("TOPLEFT", f, "TOPLEFT", 14, -28)
+    targetText:SetTextColor(1, 1, 1)
+    f.targetText = targetText
+
+    local statusText = f:CreateFontString(nil, "OVERLAY")
+    statusText:SetFont(UnBotFont, 10)
+    statusText:SetPoint("TOPLEFT", f, "TOPLEFT", 14, -46)
+    statusText:SetTextColor(0.65, 0.8, 1)
+    f.statusText = statusText
+
+    local function TargetRoleButton(name, x, which)
+        local btn = CreateFrame("Button", name, f, "UIPanelButtonTemplate")
+        btn:SetWidth(88)
+        btn:SetHeight(22)
+        btn:SetPoint("TOPLEFT", f, "TOPLEFT", x, -66)
+        btn.which = which
+        btn:SetScript("OnClick", function() UnBot:ApplySelectedRole(this.which) end)
+        return btn
+    end
+    f.primaryButton = TargetRoleButton("UnBotSelectedRolePrimary", 14, "primary")
+    f.secondaryButton = TargetRoleButton("UnBotSelectedRoleSecondary", 118, "secondary")
+
+    local refresh = CreateFrame("Button", "UnBotSelectedRoleRefresh", f,
+                                "UIPanelButtonTemplate")
+    refresh:SetWidth(88)
+    refresh:SetHeight(20)
+    refresh:SetPoint("TOP", f, "TOP", 0, -92)
+    refresh:SetText("Check role")
+    refresh:SetScript("OnClick", function() UnBot:RefreshRoleTarget(true) end)
+
+    local allLabel = f:CreateFontString(nil, "OVERLAY")
+    allLabel:SetFont(UnBotFont, 9)
+    allLabel:SetPoint("TOPLEFT", f, "TOPLEFT", 14, -120)
+    allLabel:SetTextColor(0.75, 0.75, 0.75)
+    allLabel:SetText("APPLY TO ALL GROUPED CLASS BOTS")
+
     for i = 1, count do
         local class = ROLE_ORDER[i]
         local preset = ROLE_PRESETS[class]
 
         local btn = CreateFrame("Button", "UnBotRole"..class, f)
-        btn:SetWidth(84)
+        btn:SetWidth(192)
         btn:SetHeight(20)
-        btn:SetPoint("TOP", f, "TOP", 0, -24 - (i - 1) * 22)
+        btn:SetPoint("TOP", f, "TOP", 0, -136 - (i - 1) * 22)
         btn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
         btn:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight", "ADD")
         btn.class = class
@@ -363,8 +511,9 @@ function UnBot:CreateRoleFrame()
         text:SetPoint("CENTER", btn, "CENTER", 0, 0)
         local c = CLASS_COLOR[class]
         text:SetTextColor(c[1], c[2], c[3])
-        text:SetText(string.upper(string.sub(class, 1, 1))
-                     ..string.lower(string.sub(class, 2)))
+        local className = string.upper(string.sub(class, 1, 1))
+                          ..string.lower(string.sub(class, 2))
+        text:SetText(className)
 
         btn:SetScript("OnClick", function()
             if arg1 == "RightButton" then
@@ -382,10 +531,22 @@ function UnBot:CreateRoleFrame()
             GameTooltip:AddLine("Right-click: "..p.secondary.label, 1, 0.6, 0.3)
             GameTooltip:AddLine("Applies to every "..string.lower(this.class)
                                 .." in your group", 0.6, 0.6, 0.6)
+            GameTooltip:AddLine("Changes combat strategies, not talents or gear", 0.6, 0.6, 0.6)
             GameTooltip:Show()
         end)
         btn:SetScript("OnLeave", function() GameTooltip:Hide() end)
     end
+
+    local events = CreateFrame("Frame", "UnBotRoleEvents")
+    events:RegisterEvent("PLAYER_TARGET_CHANGED")
+    events:RegisterEvent("PARTY_MEMBERS_CHANGED")
+    events:RegisterEvent("RAID_ROSTER_UPDATE")
+    events:SetScript("OnEvent", function()
+        if UnBotRoleFrame and UnBotRoleFrame:IsShown() then
+            UnBot:RefreshRoleTarget(false)
+        end
+    end)
+    self:RefreshRoleTarget(false)
 end
 
 function UnBot:CreateStrategyFrame()

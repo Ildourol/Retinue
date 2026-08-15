@@ -235,9 +235,13 @@ function UnBot:CreateFavoritesBar(parent)
 end
 
 function UnBot:CreateGroupButtons()
-    for group = 1, 10 do
+    -- Party Management and Formation trade physical slots while retaining
+    -- their stable group ids for saved favorites and command mappings.
+    local displayOrder = { 1, 2, 3, 4, 5, 6, 9, 8, 7, 10 }
+    for slot = 1, 10 do
+        local group = displayOrder[slot]
         local x = MAIN_CONTENT_LEFT
-                 + (group - 1) * (BUTTON_SIZE + BUTTON_GAP)
+                 + (slot - 1) * (BUTTON_SIZE + BUTTON_GAP)
         local btn = self:CreateIconButton("UnBotGroupButton"..group, UnBotFrame, x,
                                       GROUP_BUTTON_Y)
 
@@ -282,6 +286,7 @@ function UnBot:CreateGroupButtons()
     roles:SetScript("OnEnter", function()
         UnBot:ShowCommandTooltip(this, 102, "plain")
     end)
+    self.roleButton = roles
 
 end
 
@@ -465,6 +470,22 @@ function UnBot:AssignCommandToGroup(groupIndex, commandId)
 
     self.config[groupIndex] = commandId
     self:Message(self:GetTitle(commandId).." -> legacy slot "..groupIndex)
+end
+
+function UnBot:ClearMainButtonHighlights()
+    for group = 1, 10 do
+        local btn = self.groupButtons and self.groupButtons[group]
+        if btn then
+            btn:UnlockHighlight()
+            local texture = btn:GetHighlightTexture()
+            if texture then texture:Hide() end
+        end
+    end
+    if self.roleButton then
+        self.roleButton:UnlockHighlight()
+        local texture = self.roleButton:GetHighlightTexture()
+        if texture then texture:Hide() end
+    end
 end
 
 function UnBot:RefreshAllGroupIcons()
