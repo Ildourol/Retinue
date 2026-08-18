@@ -12,8 +12,6 @@ Control your own account characters as bots: bring them online, invite them,
 inspect their bags, cast their spells and switch their combat strategies —
 without typing chat commands.
 
-![command bar](screens/bar.png)
-
 ![Warband panel](screens/addon.png)
 
 ## Features
