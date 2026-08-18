@@ -14,6 +14,8 @@ without typing chat commands.
 
 ![command bar](screens/bar.png)
 
+![Warband panel](screens/addon.png)
+
 ## Features
 
 **Command bar** — ten labelled command-group buttons plus role shortcuts. Click
