@@ -1,103 +1,96 @@
+<div align="center">
+
+<img src="screens/banner.jpg" alt="Warband Playerbot Panel Banner" width="100%" />
+
 # Warband
 
-A bot command panel for servers running
-[mangosbot](https://github.com/ike3/mangosbot-bots).
+[![Interface](https://img.shields.io/badge/Interface-11200-blue.svg)]()
+[![Turtle WoW](https://img.shields.io/badge/Turtle%20WoW-1.18.1-green.svg)](https://turtlecraft.gg/)
+[![Target Core](https://img.shields.io/badge/Core-MaNGOS%20%2F%20IKE3%20Playerbots-orange.svg)]()
+[![License](https://img.shields.io/badge/License-GPL%20v2-lightgrey.svg)](LICENSE)
 
-Developed and tested against **Turtle WoW 1.18.1**, whose client is built on
-**1.12 (Vanilla)**. It targets interface 11200 and uses only Vanilla APIs, so
-it should work on other 1.12 servers too — with one caveat, see
-[Client differences](#client-differences).
+An intuitive, graphical command panel for servers running mangosbot / IKE3 Playerbots.
 
-Control your own account characters as bots: bring them online, invite them,
-inspect their bags, cast their spells and switch their combat strategies —
-without typing chat commands.
+[Overview](#overview) • [Features](#features) • [Installation](#installation) • [Usage](#usage) • [Compatibility](#compatibility) • [Credits](#credits)
 
-![Warband panel](screens/addon.png)
+</div>
+
+---
+
+## Overview
+
+**Warband** is an in-game control interface built for World of Warcraft client version **1.12.1 (Vanilla)** and **Turtle WoW (1.18.1)**. It provides a visual management panel to control your account characters as bots: bring them online, invite them, inspect their bags, cast their spells, and manage their combat strategies without typing repetitive chat commands.
+
+<div align="center">
+
+<img src="screens/addon.png" alt="Warband in-game panel screenshot" width="90%" />
+
+</div>
+
+---
 
 ## Features
 
-**Command bar** — ten labelled command-group buttons plus role shortcuts. Click
-any group to open one movable window of compact icon-and-label command
-buttons. Selecting another group reuses that same window. Right-click a
-command to toggle it in the Favorites strip above the bar; removing requires
-confirmation, and the strip has a separate Clear button for clearing everything.
-Overflow opens the complete Favorites list. The windows contain the same commands that were
-previously hidden in icon-only right-click popups, so no command is lost. A minimap button
-shows or hides the entire panel.
+- **Command Bar**: Ten categorized group buttons with rapid role shortcuts. Clicking any category opens a dedicated, movable window with compact icon-and-label command buttons. Selecting another category reuses the same window frame to avoid screen clutter.
+- **Favorites Strip**: Right-click any command to pin it to the Favorites strip above the primary bar. Removing entries requires confirmation, and a dedicated Clear button resets the strip. Overflow opens the full Favorites index.
+- **Minimap Quick-Toggle**: A clean minimap icon to toggle panel visibility with a single click.
+- **Roster & Auto-Fill**: Parses `.bot list` directly from the server to list your characters with correct class badges and levels. Filter by class and utilize one-click party (`Fill group`) or raid (`Fill raid`) deployment.
+- **Inventory & Bags**: Visual icon grid with full item quality borders and tooltips. Dedicated filter tabs for Equip, Use, Sell, and Destroy operations.
+- **Spells & Buffs**: Categorized by spell type (auras, blessings, shouts, aspects, seals) with a dedicated buffs-only filter for manual party preparation.
+- **Strategy Management**: Dynamically queries the bot's supported strategies via in-game help, ensuring names match the server core without hardcoding. Includes collapsible sections for combat and non-combat strategy sets.
+- **Role Shortcuts**: One-click role assignments per class. Left-click assigns primary roles (Tank / Healer), while right-click assigns secondary roles (DPS) across all matching bots in the group simultaneously.
 
-**Roster** — reads `.bot list` straight from the server, so your characters
-appear with the correct class automatically. Filter by class, then:
-
-- *Fill group* — logs in and invites until the party is full
-- *Fill raid* — same for a raid, converting the party when it runs out of room
-- Left-click a name to log that one in and invite it
-
-**Bags** — the bot's inventory as an icon grid with quality borders and full
-tooltips. Tabs for Equip, Use, Sell and Destroy, each filtered to the item
-types that action can handle.
-
-**Spells** — grouped by type (auras, blessings, shouts, aspects, seals…) with
-a buffs-only filter, since that is usually what you want to trigger by hand.
-
-**Strategies** — the bot's own strategy list, read from its in-game help, so
-the names always match your server. Collapsible sections, combat and
-non-combat sets.
-
-**Role shortcuts** — one button per class. Left-click sets its primary role
-(tank/heal), right-click the secondary (dps), applied to every bot of that
-class in the group at once.
+---
 
 ## Installation
 
-Copy the `Warband` folder into `Interface\AddOns\` and restart the client.
+1. Download or clone this repository.
+2. Copy the `Warband` directory into your World of Warcraft directory under:
+   ```text
+   Interface\AddOns\Warband
+   ```
+3. Ensure the folder name inside `AddOns` is named exactly `Warband`.
+4. Restart your game client or reload the UI with `/console reloadui`.
+
+---
 
 ## Usage
 
-`/warband` shows or hides the bar. Everything else has a button; these
-shortcuts open the same windows:
+Use `/warband` to toggle the main command bar.
 
-| Command | Opens |
-| --- | --- |
-| `/warband roster` | your account bots |
-| `/warband strategy` | strategy editor for your target |
-| `/warband spells` | spell list for your target |
-| `/warband bags` | inventory of your target |
-| `/warband fill` | fill the party |
+### Shortcut Commands
 
-Diagnostics: `/warband debug`, `/warband checkapi`, `/warband capture`.
+| Slash Command | Window Opened |
+|:---|:---|
+| `/warband roster` | Account characters and bot roster |
+| `/warband strategy` | Strategy manager for the targeted bot |
+| `/warband spells` | Spell and ability manager for the targeted bot |
+| `/warband bags` | Inventory and equipment of the targeted bot |
+| `/warband fill` | Automatically fill open party slots with available bots |
 
-## Client differences
+### Diagnostic Commands
 
-**Item icons are the one Turtle-specific part.** Turtle's `GetItemInfo`
-returns ten values with the texture in slot 9; stock 1.12 returns eight and no
-texture at all. On a plain 1.12 server the bag window therefore falls back to
-[AtlasLoot](https://github.com/AtlasLootClassic)'s id → icon table when that
-addon is installed, and to a generic icon otherwise. Names, tooltips and every
-action keep working either way, because they come from the chat link rather
-than the client's item cache.
+- `/warband debug`: Toggle internal debug output.
+- `/warband checkapi`: Audit client API availability.
+- `/warband capture`: Capture and inspect server chat packets.
 
-Other things that differ from later expansions, all handled in the code and
-commented where it matters:
+---
 
-- script handlers get no arguments — the globals `this`, `event` and `arg1`
-  are used instead
-- no `#` operator, no `string.match`, no varargs
-- `InviteByName` and `UninviteByName`, not the later `InviteUnit` variants
-- `UnitInParty` raises an error on a name that is not a nearby unit, so group
-  membership is checked by walking the party and raid slots
-- `GameTooltip:SetHyperlink` wants a bare `item:id:0:0:0`, not a full chat link
-- bot actions need a `d` prefix (`d add all loot`), plain commands do not
+## Compatibility
 
-## Server differences
+### Client Differences (Turtle WoW 1.18.1 vs Vanilla 1.12.1)
 
-Command availability varies between mangosbot builds. On Turtle 1.18.1 only
-`.bot add`, `.bot remove`, `.bot list` and `.bot init=<quality>` exist —
-`refresh`, `levelup` and `random` do not, and `.appear` is GM-only. Strategy
-names are never hardcoded: the addon reads them from the bot's own in-game
-help, so they always match whatever server you are on.
+- **Item Textures**: Turtle WoW's `GetItemInfo` API returns 10 values with the texture located in slot 9. Stock 1.12 clients return 8 values without an embedded texture; on stock 1.12 servers, Warband integrates seamlessly with AtlasLoot's icon dictionary or uses fallback icons.
+- **Vanilla Script Environment**: Fully compliant with the 1.12 Lua 5.0 environment (uses `this`, `event`, `arg1` globals; avoids post-Vanilla `#` length operators, `string.match`, and varargs).
+- **Safe Unit Checks**: Safe group-slot iteration replaces modern unit check methods to prevent disconnection or script errors on distant bots.
+
+### Server Commands
+
+Command availability automatically adjusts to the target server build. On Turtle WoW 1.18.1, the addon leverages `.bot add`, `.bot remove`, `.bot list`, and `.bot init=<quality>`, dynamically discovering strategies to maintain full compatibility.
+
+---
 
 ## Credits
 
-Rewritten from the ground up for 1.12, based on the 3.3.5 addon **UnBot**.
-The command ids, groupings and chat protocol come from that addon; none of its
-code is included here.
+- Originally rewritten for 1.12 based on the concepts from the 3.3.5 addon **UnBot**. Command groupings and communication protocols adapted for classic compatibility.
+- Maintained for **Turtle WoW Classic+ Extended** and the **mangosbot / IKE3** community.

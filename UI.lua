@@ -30,7 +30,7 @@ end
 
 function UnBot:CreateMainFrame()
     local frame = CreateFrame("Frame", "UnBotFrame", UIParent)
-    frame:SetWidth(11 * (BUTTON_SIZE + BUTTON_GAP) + 20)
+    frame:SetWidth(12 * (BUTTON_SIZE + BUTTON_GAP) + 20)
     frame:SetHeight(BUTTON_SIZE * 2 + 26)
     frame:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, 180)
     self:MakeDraggable(frame)
@@ -237,8 +237,8 @@ end
 function UnBot:CreateGroupButtons()
     -- Party Management and Formation trade physical slots while retaining
     -- their stable group ids for saved favorites and command mappings.
-    local displayOrder = { 1, 2, 3, 4, 5, 6, 9, 8, 7, 10 }
-    for slot = 1, 10 do
+    local displayOrder = { 1, 2, 3, 4, 5, 6, 9, 8, 7, 11, 10 }
+    for slot = 1, 11 do
         local group = displayOrder[slot]
         local x = MAIN_CONTENT_LEFT
                  + (slot - 1) * (BUTTON_SIZE + BUTTON_GAP)
@@ -276,7 +276,7 @@ function UnBot:CreateGroupButtons()
 
     -- Role shortcuts get a fixed slot of their own rather than hiding in a
     -- popup, since they are meant to be one click away.
-    local roleX = MAIN_CONTENT_LEFT + 10 * (BUTTON_SIZE + BUTTON_GAP)
+    local roleX = MAIN_CONTENT_LEFT + 11 * (BUTTON_SIZE + BUTTON_GAP)
     local roles = self:CreateIconButton("UnBotRoleButton", UnBotFrame, roleX,
                                       GROUP_BUTTON_Y)
     roles.icon:SetTexture(self:GetIconPath(102))
@@ -332,7 +332,7 @@ function UnBot:GetGroupCommands(groupIndex)
 
     -- Keep future or newly enabled commands visible even if their preferred
     -- position has not been added to the ordering table yet.
-    for id = 1, 103 do
+    for id = 1, 200 do
         if UnBotCommandToGroups[id] == groupIndex
         and not seen[id]
         and self:IsCommandDefined(id) then
@@ -534,3 +534,4 @@ function UnBot:ShowCommandTooltip(owner, commandId, kind)
     GameTooltip:AddDoubleLine(UnBotL.TT.CMD_ID, tostring(commandId), 0, 0.6, 1, 1, 1, 1)
     GameTooltip:Show()
 end
+

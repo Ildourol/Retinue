@@ -114,6 +114,68 @@ UnBotL.TITLE = {
     [101] = "Give leader to selected bot",
     [102] = "Roles",
     [103] = "Use nearby world object",
+    [104] = "Bot formation - Far",
+    [105] = "Ping formation positions",
+    [106] = "Combat stance - Near",
+    [107] = "Combat stance - Tank",
+    [108] = "Combat stance - Turnback",
+    [109] = "Combat stance - Behind",
+    [110] = "Combat stance - Spread",
+    [111] = "Ping stance positions",
+    [112] = "Attack RTI marked target",
+    [113] = "Pull RTI marked target",
+    [114] = "Toggle Auto Mark RTI",
+    [115] = "Toggle Kite strategy",
+    [116] = "Set RTI target: Skull",
+    [117] = "Set RTI target: Cross",
+    [118] = "Set RTI target: Square",
+    [119] = "Set RTI target: Moon",
+    [120] = "Set RTI target: Triangle",
+    [121] = "Set RTI target: Diamond",
+    [122] = "Set RTI target: Circle",
+    [123] = "Set RTI target: Star",
+    [124] = "Clear RTI target",
+    [125] = "Set RTI crowd control: Skull",
+    [126] = "Set RTI crowd control: Moon",
+    [127] = "Clear RTI crowd control",
+
+    -- loot strategy filters (128-135)
+    [128] = "Loot filter: Equipment upgrades",
+    [129] = "Loot filter: Quest items",
+    [130] = "Loot filter: Trade skill materials",
+    [131] = "Loot filter: Items to disenchant",
+    [132] = "Loot filter: Consumables & reagents",
+    [133] = "Loot filter: Items to vendor for gold",
+    [134] = "Loot filter: Grey junk / trash",
+    [135] = "Show bot loot filter rules",
+
+    -- mana conservation levels (136-141)
+    [136] = "Mana conservation: Off (full burst)",
+    [137] = "Mana conservation: Level 2 (low)",
+    [138] = "Mana conservation: Level 3 (medium)",
+    [139] = "Mana conservation: Level 4 (high)",
+    [140] = "Mana conservation: Level 5 (maximum)",
+    [141] = "Show mana conservation level",
+
+    -- guard post & position control (142-144)
+    [142] = "Set guard post here",
+    [143] = "Move to guard post",
+    [144] = "Free movement / wander",
+
+    -- autonomous RPG modes (145-150)
+    [145] = "Toggle autonomous RPG mode",
+    [146] = "RPG: Autonomous questing",
+    [147] = "RPG: Autonomous vendor & AH",
+    [148] = "RPG: Autonomous explore & flight",
+    [149] = "RPG: Autonomous training & repair",
+    [150] = "RPG: Autonomous crafting",
+
+    -- utilities & diagnostics (151-156)
+    [151] = "Check mailbox / unread mail",
+    [152] = "Show blacklisted / skip spells",
+    [153] = "Talk to quest giver / gossip NPC",
+    [154] = "Accept all shared quests",
+    [155] = "Check quest reward items",
 }
 
 -- Longer help text, shown under the title in the tooltip.
@@ -141,6 +203,51 @@ UnBotL.HELP = {
             "right-click applies the alternative. Talents and gear are unchanged.",
     [103] = "Chests, levers, herbs and ore - the Use tab only handles bag items.",
     [80] = "Uses the client's ready check where available.",
+    [104] = "Bots follow in a spread-out far formation.",
+    [105] = "Pings minimap/ground with current formation positions.",
+    [106] = "Bots stay near their target in combat (default).",
+    [107] = "Tanks face target away from group; others reposition.",
+    [108] = "Bots position so target faces away from ranged members.",
+    [109] = "Melee bots attempt to attack from behind the target.",
+    [110] = "Bots spread out at least 10 yards to avoid AoE.",
+    [111] = "Pings ground with current stance positions.",
+    [112] = "Commands party bots to attack the RTI marked target.",
+    [113] = "Commands party bots to pull the RTI marked target.",
+    [114] = "Bots automatically mark combat targets with raid icons.",
+    [115] = "Toggles kiting behaviour for party bots when attacked.",
+    [116] = "Sets primary focus target icon to Skull.",
+    [124] = "Clears primary focus target icon assignment.",
+    [125] = "Sets crowd-control target icon to Skull.",
+    [126] = "Sets crowd-control target icon to Moon.",
+    [127] = "Clears crowd-control target icon assignment.",
+    [128] = "Toggles whether bots loot equipment upgrades from fallen foes.",
+    [129] = "Toggles whether bots loot quest objective items.",
+    [130] = "Toggles whether bots loot profession crafting reagents.",
+    [131] = "Toggles whether bots loot uncommon/rare items for disenchanting.",
+    [132] = "Toggles whether bots loot potions, food, bandages and reagents.",
+    [133] = "Toggles whether bots loot vendor items to earn gold.",
+    [134] = "Toggles whether bots loot junk grey items.",
+    [135] = "Prints the party bots' active loot filters to chat.",
+    [136] = "Disables mana conservation so bots cast at full power.",
+    [137] = "Conserves mana lightly during drawn-out battles.",
+    [138] = "Moderate mana conservation balancing DPS and efficiency.",
+    [139] = "High mana conservation, prioritizing essential spells and downranking.",
+    [140] = "Maximum mana saving, only casting vital utility and wanding/autoattacking.",
+    [141] = "Prints the party bots' active mana save level.",
+    [142] = "Records your current coordinates as the bots' permanent guard post.",
+    [143] = "Orders bots to travel to their assigned guard post and defend it.",
+    [144] = "Allows bots to move freely and wander nearby out of combat.",
+    [145] = "Toggles autonomous RPG behaviors when idle out of combat.",
+    [146] = "Bots autonomously pick up and hand in quests to nearby NPCs.",
+    [147] = "Bots autonomously sell junk, buy needed items and check mailbox.",
+    [148] = "Bots discover flight masters, take flights and explore the zone.",
+    [149] = "Bots visit class and profession trainers to learn new spells.",
+    [150] = "Bots autonomously craft items and cast trade skills.",
+    [151] = "Commands bots to check nearby mailboxes and report attached items.",
+    [152] = "Prints the list of blacklisted spells that bots are forbidden to cast.",
+    [153] = "Commands bots to gossip or interact with your selected NPC.",
+    [154] = "Accepts all shared party quests from all members.",
+    [155] = "Queries available quest reward items for the selected bot.",
 }
 
 UnBotL.MSG = {
@@ -226,3 +333,24 @@ UnBotL.NPC = {
     SUMMON_DESC_PRE = "Summons: ",
     SELECT_SELF_NPC = "You must select your own NPC bot",
 }
+
+-- Keybinding labels in Blizzard options
+BINDING_HEADER_WARBAND = "Warband"
+BINDING_NAME_WARBAND_TOGGLE = "Toggle command bar"
+BINDING_NAME_WARBAND_ROSTER = "Toggle bot roster"
+BINDING_NAME_WARBAND_STRATEGY = "Toggle strategy window"
+BINDING_NAME_WARBAND_FOLLOW = "Follow me"
+BINDING_NAME_WARBAND_STAY = "Stay / hold position"
+BINDING_NAME_WARBAND_FLEE = "Flee / retreat"
+BINDING_NAME_WARBAND_ATTACK = "Attack my target"
+BINDING_NAME_WARBAND_ATTACK_RTI = "Attack RTI marked target"
+BINDING_NAME_WARBAND_PULL = "Pull my target"
+BINDING_NAME_WARBAND_PULL_RTI = "Pull RTI marked target"
+BINDING_NAME_WARBAND_LOOT = "Loot nearby items"
+BINDING_NAME_WARBAND_KITE = "Toggle Kite strategy"
+BINDING_NAME_WARBAND_MARK_RTI = "Toggle Auto Mark RTI"
+BINDING_NAME_WARBAND_GUARD = "Move to guard post"
+BINDING_NAME_WARBAND_SET_GUARD = "Set guard post here"
+BINDING_NAME_WARBAND_FREE = "Free movement / wander"
+BINDING_NAME_WARBAND_RPG = "Toggle RPG mode"
+

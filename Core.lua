@@ -513,6 +513,9 @@ capture:SetScript("OnEvent", function()
         if type(UnBot.ParseCombatStrategies) == "function" then
             UnBot:ParseCombatStrategies(arg2, arg1)
         end
+        if type(UnBot.ParseNonCombatStrategies) == "function" then
+            UnBot:ParseNonCombatStrategies(arg2, arg1)
+        end
     end
 end)
 

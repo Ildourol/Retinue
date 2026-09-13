@@ -1,4 +1,4 @@
-﻿-- UnBot Data - command tables recovered from the 3.3.5 addon.
+-- UnBot Data - command tables recovered from the 3.3.5 addon.
 -- These are the heart of the addon: what each command sends and how.
 
 -- Chat text sent for each command id. Empty string = handled by a special
@@ -104,6 +104,78 @@ UnBotExecuteCommand = {
     -- "use" only covers items; world objects (chests, levers, herbs, mining
     -- nodes) need the game-object form.
     [103] = "d use go",
+
+    -- Formations
+    [104] = "formation far",
+    [105] = "formation show",
+
+    -- Stances
+    [106] = "stance near",
+    [107] = "stance tank",
+    [108] = "stance turnback",
+    [109] = "stance behind",
+    [110] = "stance spread",
+    [111] = "stance show",
+
+    -- RTI and Combat Tactics
+    [112] = "attack rti",
+    [113] = "pull rti",
+    [114] = "co ~mark rti",
+    [115] = "co ~kite",
+
+    -- RTI Target Marks
+    [116] = "rti skull",
+    [117] = "rti cross",
+    [118] = "rti square",
+    [119] = "rti moon",
+    [120] = "rti triangle",
+    [121] = "rti diamond",
+    [122] = "rti circle",
+    [123] = "rti star",
+    [124] = "rti none",
+
+    -- RTI CC Marks
+    [125] = "rti cc skull",
+    [126] = "rti cc moon",
+    [127] = "rti cc none",
+
+    -- Loot Strategy Filters (ll)
+    [128] = "ll ~equip",
+    [129] = "ll ~quest",
+    [130] = "ll ~skill",
+    [131] = "ll ~disenchant",
+    [132] = "ll ~use",
+    [133] = "ll ~vendor",
+    [134] = "ll ~trash",
+    [135] = "ll ?",
+
+    -- Mana Conservation Tuning (save mana)
+    [136] = "save mana 1",
+    [137] = "save mana 2",
+    [138] = "save mana 3",
+    [139] = "save mana 4",
+    [140] = "save mana 5",
+    [141] = "save mana ?",
+
+    -- Guard Post & Position Control
+    [142] = "position guard set",
+    [143] = "guard",
+    [144] = "free",
+
+    -- Autonomous Non-Combat RPG Modes (nc)
+    [145] = "nc ~rpg",
+    [146] = "nc ~rpg quest",
+    [147] = "nc ~rpg vendor",
+    [148] = "nc ~rpg explore",
+    [149] = "nc ~rpg maintenance",
+    [150] = "nc ~rpg craft",
+
+    -- Utility, Blacklist & Interaction
+    [151] = "mail ?",
+    [152] = "ss ?",
+    [153] = "talk",
+    [154] = "accept *",
+    [155] = "r ?",
 }
 
 -- How the command is delivered:
@@ -130,34 +202,52 @@ UnBotCommandType = {
     [90] = 4, [91] = 4, [92] = 4, [93] = 4, [94] = 4, [95] = 4,
     [96] = 2, [97] = 4, [98] = 4, [99] = 4, [100] = 4, [101] = 2,
     [102] = 1, [103] = 4,
+    -- formations, stances, rti and combat tactics (party-wide)
+    [104] = 4, [105] = 4, [106] = 4, [107] = 4, [108] = 4, [109] = 4,
+    [110] = 4, [111] = 4, [112] = 4, [113] = 4, [114] = 4, [115] = 4,
+    [116] = 4, [117] = 4, [118] = 4, [119] = 4, [120] = 4, [121] = 4,
+    [122] = 4, [123] = 4, [124] = 4, [125] = 4, [126] = 4, [127] = 4,
+    -- loot filters, mana conservation, guard, rpg, utilities
+    [128] = 4, [129] = 4, [130] = 4, [131] = 4, [132] = 4, [133] = 4, [134] = 4, [135] = 4,
+    [136] = 4, [137] = 4, [138] = 4, [139] = 4, [140] = 4, [141] = 4,
+    [142] = 4, [143] = 4, [144] = 4,
+    [145] = 4, [146] = 4, [147] = 4, [148] = 4, [149] = 4, [150] = 4,
+    [151] = 4, [152] = 4, [153] = 4, [154] = 4, [155] = 4,
 }
 
--- Which of the 10 command-bar groups a command belongs to.
+-- Which of the command-bar groups a command belongs to.
 -- Role shortcuts intentionally stay on their own fixed Role button.
 --
---   1 Combat                 6 Abilities
---   2 Movement               7 Party Management
---   3 Support                8 Strategy
---   4 Inventory              9 Formation
---   5 Info & Status           10 Roster
+--   1 Combat                 7 Party Management
+--   2 Movement               8 Strategy
+--   3 Support                9 Formation
+--   4 Inventory              10 Roster
+--   5 Info & Status          11 Utilities & Mail
+--   6 Abilities
 UnBotCommandToGroups = {
     [0] = 0,
-    -- combat: attack, retreat and stop
+    -- combat: attack, retreat, RTI and tactics
     [25] = 1, [26] = 1, [27] = 1, [28] = 1, [29] = 1, [30] = 1, [31] = 1,
     [32] = 1, [33] = 1, [34] = 1, [35] = 1, [36] = 1, [37] = 1,
-    [70] = 1, [92] = 1,
-    -- movement
+    [70] = 1, [91] = 1, [92] = 1,
+    [112] = 1, [113] = 1, [114] = 1, [115] = 1,
+    [116] = 1, [117] = 1, [118] = 1, [119] = 1, [120] = 1, [121] = 1,
+    [122] = 1, [123] = 1, [124] = 1, [125] = 1, [126] = 1, [127] = 1,
+    -- movement & stances
     [15] = 2, [16] = 2, [47] = 2, [76] = 2, [100] = 2,
+    [106] = 2, [107] = 2, [108] = 2, [109] = 2, [110] = 2, [111] = 2,
+    [142] = 2, [143] = 2, [144] = 2,
     -- support and upkeep
     [18] = 3, [19] = 3, [24] = 3, [55] = 3, [56] = 3, [57] = 3,
     [58] = 3, [59] = 3, [60] = 3, [61] = 3, [80] = 3, [81] = 3,
-    [89] = 3, [90] = 3, [98] = 3, [99] = 3, [103] = 3,
+    [89] = 3, [90] = 3, [98] = 3, [99] = 3,
+    [145] = 3, [146] = 3, [147] = 3, [148] = 3, [149] = 3, [150] = 3,
     -- inventory and item maintenance
     [11] = 4, [64] = 4, [65] = 4, [66] = 4, [67] = 4, [68] = 4,
     [93] = 4, [94] = 4, [95] = 4,
+    [128] = 4, [129] = 4, [130] = 4, [131] = 4, [132] = 4, [133] = 4, [134] = 4, [135] = 4,
     -- information and status
     [20] = 5, [21] = 5, [22] = 5, [23] = 5, [62] = 5, [63] = 5,
-    [72] = 5,
     -- training and abilities
     [5] = 6, [6] = 6, [7] = 6, [8] = 6, [17] = 6, [69] = 6,
     [96] = 6, [97] = 6,
@@ -168,35 +258,58 @@ UnBotCommandToGroups = {
     -- strategy, AI and target behaviour
     [9] = 8, [10] = 8, [48] = 8, [49] = 8, [50] = 8, [51] = 8,
     [52] = 8, [53] = 8, [54] = 8, [75] = 8, [84] = 8, [85] = 8,
+    [136] = 8, [137] = 8, [138] = 8, [139] = 8, [140] = 8, [141] = 8,
     -- formation
     [38] = 9, [39] = 9, [40] = 9, [41] = 9, [42] = 9, [43] = 9,
-    [44] = 9, [45] = 9, [46] = 9,
+    [44] = 9, [45] = 9, [46] = 9, [104] = 9, [105] = 9,
     -- Group 10 opens the Player roster directly. Its commands stay defined
     -- for the roster controls and saved favorites, but need no action window.
     -- 102 is handled by the separate Role button, not a group window.
     [102] = 0,
+    -- group 11: utilities, mail, blacklist & world interaction
+    [72] = 11, [88] = 11, [103] = 11, [151] = 11, [152] = 11, [153] = 11, [154] = 11, [155] = 11,
 }
 
 -- Display order inside each group.  Any future command not listed here is
 -- appended using its command ID, so adding an action cannot hide it.
 UnBotCommandOrder = {
-    [1] = { 32, 92, 70, 33, 35, 34, 36, 37, 25, 31, 26, 28, 27, 29, 30 },
-    [2] = { 15, 16, 100, 47, 76 },
-    [3] = { 80, 90, 99, 81, 24, 89, 103, 98, 18, 19 },
-    [4] = { 64, 93, 66, 94, 68, 67, 95, 65 },
-    [5] = { 22, 23, 62, 63, 20, 21 },
-    [6] = { 96, 69, 97, 17 },
-    [7] = { 87, 86, 83, 82, 3, 2, 13, 14, 101, 71 },
-    [8] = { 54, 85, 9, 10 },
-    [9] = { 46, 38, 42, 43, 40, 41, 39, 45, 44 },
+    [1] = { 32, 91, 112, 92, 113, 33, 35, 34, 36, 37,
+            115, 114, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127,
+            70, 25, 31, 26, 28, 27, 29, 30 },
+    [2] = { 15, 16, 100,
+            47, 76, 142, 143, 144,
+            106, 107, 108, 109, 110, 111 },
+    [3] = { 80, 90, 99, 81,
+            24, 89,
+            145, 146, 147, 148, 149, 150,
+            98, 18, 19 },
+    [4] = { 64, 93, 66, 94,
+            68, 67, 95, 65,
+            128, 129, 130, 131, 132, 133, 134, 135 },
+    [5] = { 22, 23,
+            62, 63,
+            20, 21 },
+    [6] = { 96, 69,
+            97, 17 },
+    [7] = { 87, 86,
+            83, 82,
+            3, 2,
+            13, 14,
+            101, 71 },
+    [8] = { 54, 85,
+            9, 10,
+            136, 137, 138, 139, 140, 141 },
+    [9] = { 46, 105, 38, 42, 43, 40, 41, 39, 45, 44, 104 },
     [10] = {},
+    [11] = { 151, 154, 155, 152, 153, 103, 72, 88 },
 }
 
 -- Icon per command.
 -- The 3.3.5 addon leaned heavily on Achievement_* textures, which only shipped
 -- with WotLK and render as an empty button on 1.12. Entries marked "orig" are
 -- the untouched original icon; the rest are Vanilla-safe stand-ins.
-local I = "Interface\\Icons\\"
+local I  = "Interface\\Icons\\"
+local IM = "Interface\\AddOns\\Warband\\Images\\"
 UnBotCommandIcon = {
     [0]  = I.."Temp",                          -- orig (the WoW logo icon)
 
@@ -324,6 +437,70 @@ UnBotCommandIcon = {
     [101] = I.."INV_Banner_02",
     [102] = I.."Ability_Warrior_BattleShout",   -- GroupLooking is absent on 1.12
     [103] = I.."INV_Box_01",
+
+    -- formations, stances, rti and combat tactics
+    [104] = I.."Ability_Hunter_EagleEye",
+    [105] = I.."Ability_Search",
+    [106] = I.."Ability_Warrior_DefensiveStance",
+    [107] = I.."INV_Shield_06",
+    [108] = I.."Ability_Rogue_Distract",
+    [109] = I.."Ability_Backstab",
+    [110] = I.."Spell_Nature_Earthquake",
+    [111] = I.."Ability_Tracking",
+    [112] = IM.."attack_rti.tga",
+    [113] = IM.."pull.tga",
+    [114] = I.."Ability_Hunter_SniperShot",
+    [115] = I.."Ability_Hunter_RunningShot",
+    [116] = IM.."rti_skull.tga",
+    [117] = IM.."rti_cross.tga",
+    [118] = IM.."rti_square.tga",
+    [119] = IM.."rti_moon.tga",
+    [120] = IM.."rti_triangle.tga",
+    [121] = IM.."rti_diamond.tga",
+    [122] = IM.."rti_circle.tga",
+    [123] = IM.."rti_star.tga",
+    [124] = I.."Spell_ChargeNegative",
+    [125] = IM.."cc_skull.tga",
+    [126] = IM.."cc_moon.tga",
+    [127] = I.."Spell_Holy_DispelMagic",
+
+    -- loot strategy filters (128-135)
+    [128] = I.."INV_Chest_Chain_05",
+    [129] = I.."INV_Misc_Book_08",
+    [130] = I.."Trade_Engineering",
+    [131] = I.."Spell_Holy_DispelMagic",
+    [132] = I.."INV_Potion_51",
+    [133] = I.."INV_Misc_Coin_01",
+    [134] = I.."INV_Misc_Bone_01",
+    [135] = I.."INV_Misc_QuestionMark",
+
+    -- mana conservation levels (136-141)
+    [136] = I.."Spell_Frost_ManaRecharge",
+    [137] = I.."INV_Misc_Gem_Sapphire_01",
+    [138] = I.."INV_Misc_Gem_Sapphire_02",
+    [139] = I.."INV_Misc_Gem_Sapphire_03",
+    [140] = I.."INV_Misc_Gem_Sapphire_04",
+    [141] = I.."INV_Misc_QuestionMark",
+
+    -- guard post & position control (142-144)
+    [142] = I.."INV_Misc_Map_01",
+    [143] = I.."Ability_Defend",
+    [144] = I.."Ability_Racial_Shadowmeld",
+
+    -- autonomous RPG modes (145-150)
+    [145] = I.."INV_Misc_Dice_02",
+    [146] = I.."INV_Misc_Book_07",
+    [147] = I.."INV_Misc_Bag_10_Green",
+    [148] = I.."Ability_Mount_Raptor",
+    [149] = I.."Trade_BlackSmithing",
+    [150] = I.."INV_Misc_Gear_08",
+
+    -- utilities & mail (151-155)
+    [151] = I.."INV_Letter_15",
+    [152] = I.."Spell_Shadow_SacrificialShield",
+    [153] = I.."Spell_Holy_Silence",
+    [154] = I.."INV_Misc_Note_02",
+    [155] = I.."INV_Box_02",
 }
 
 -- Original 3.3.5 icon indices, kept for reference only.

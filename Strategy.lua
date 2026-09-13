@@ -95,63 +95,45 @@ local ROLE_ORDER = {
     "SHAMAN", "MAGE", "WARLOCK", "DRUID",
 }
 
-local function ForEachGroupMemberOfClass(classToken, func)
-    local raid = GetNumRaidMembers()
-    if raid > 0 then
-        for i = 1, raid do
-            local _, token = UnitClass("raid"..i)
-            if token == classToken then func(UnitName("raid"..i)) end
-        end
-    else
-        for i = 1, GetNumPartyMembers() do
-            local _, token = UnitClass("party"..i)
-            if token == classToken then func(UnitName("party"..i)) end
-        end
+local CLASS_NORMALIZATION = {
+    ["WARRIOR"] = "WARRIOR",
+    ["PALADIN"] = "PALADIN",
+    ["HUNTER"]  = "HUNTER",
+    ["ROGUE"]   = "ROGUE",
+    ["PRIEST"]  = "PRIEST",
+    ["SHAMAN"]  = "SHAMAN",
+    ["MAGE"]    = "MAGE",
+    ["WARLOCK"] = "WARLOCK",
+    ["DRUID"]   = "DRUID",
+    -- Localized class names fallbacks:
+    ["KRIEGER"] = "WARRIOR", ["GUERRIER"] = "WARRIOR", ["ВОИН"] = "WARRIOR", ["战士"] = "WARRIOR", ["GUERRERO"] = "WARRIOR",
+    ["PALADIN"] = "PALADIN", ["ПАЛАДИН"] = "PALADIN", ["圣骑士"] = "PALADIN", ["PALADÍN"] = "PALADIN",
+    ["JÄGER"] = "HUNTER", ["CHASSEUR"] = "HUNTER", ["ОХОТНИК"] = "HUNTER", ["猎人"] = "HUNTER", ["CAZADOR"] = "HUNTER",
+    ["SCHURKE"] = "ROGUE", ["VOLEUR"] = "ROGUE", ["РАЗБОЙНИК"] = "ROGUE", ["盗贼"] = "ROGUE", ["PÍCARO"] = "ROGUE", ["PICARO"] = "ROGUE",
+    ["PRIESTER"] = "PRIEST", ["PRÊTRE"] = "PRIEST", ["PRETRE"] = "PRIEST", ["ЖРЕЦ"] = "PRIEST", ["牧师"] = "PRIEST", ["SACERDOTE"] = "PRIEST",
+    ["SCHAMANE"] = "SHAMAN", ["CHAMAN"] = "SHAMAN", ["ШАМАН"] = "SHAMAN", ["萨满祭司"] = "SHAMAN", ["CHAMÁN"] = "SHAMAN",
+    ["MAGIER"] = "MAGE", ["МАГ"] = "MAGE", ["法师"] = "MAGE", ["MAGO"] = "MAGE",
+    ["HEXENMEISTER"] = "WARLOCK", ["DÉMONISTE"] = "WARLOCK", ["DEMONISTE"] = "WARLOCK", ["ЧЕРНОКНИЖНИК"] = "WARLOCK", ["术士"] = "WARLOCK", ["BRUJO"] = "WARLOCK",
+    ["DRUIDE"] = "DRUID", ["ДРУИД"] = "DRUID", ["德鲁伊"] = "DRUID", ["DRUIDA"] = "DRUID",
+}
+
+local function GetUnitClassToken(unit)
+    if not UnitExists(unit) then return nil end
+    local locClass, token = UnitClass(unit)
+    if token and token ~= "" then
+        local upper = string.upper(token)
+        if ROLE_PRESETS[upper] then return upper end
     end
-end
-
-function UnBot:QueueRoleForBot(name, classToken, which, queryAfter)
-    local preset = ROLE_PRESETS[classToken]
-    local role = preset and preset[which]
-    if not role then return false end
-
-    -- Role presets use source-verified base strategy names. Do not filter them
-    -- through the cached help list: that list may contain only expanded names
-    -- such as "shadow pve", which previously dropped the required +shadow.
-    local off = role.off
-    local on = role.on
-    for i = 1, table.getn(off) do
-        self:QueueChat("co -"..off[i], "WHISPER", name)
+    if locClass and locClass ~= "" then
+        local upper = string.upper(locClass)
+        if ROLE_PRESETS[upper] then return upper end
+        if CLASS_NORMALIZATION[upper] then return CLASS_NORMALIZATION[upper] end
     end
-    for i = 1, table.getn(on) do
-        self:QueueChat("co +"..on[i], "WHISPER", name)
-    end
-    if queryAfter then self:QueueChat("co ?", "WHISPER", name) end
-    return true
-end
-
-function UnBot:ApplyRole(classToken, which)
-    local preset = ROLE_PRESETS[classToken]
-    local role = preset and preset[which]
-    if not role then return end
-
-    local targets = 0
-    ForEachGroupMemberOfClass(classToken, function(name)
-        if self:QueueRoleForBot(name, classToken, which, false) then
-            targets = targets + 1
-        end
-    end)
-
-    if targets == 0 then
-        self:Message("No "..string.lower(classToken).." in your group")
-    else
-        local className = string.upper(string.sub(classToken, 1, 1))
-                          ..string.lower(string.sub(classToken, 2))
-        self:Message(className.." - "..role.label.." applied to "..targets.." bot(s)")
-    end
+    return nil
 end
 
 local function IsGroupedName(name)
+    if not name then return false end
     local raid = GetNumRaidMembers()
     if raid > 0 then
         for i = 1, raid do
@@ -165,11 +147,91 @@ local function IsGroupedName(name)
     return false
 end
 
-function UnBot:GetSelectedRoleTarget()
+local function IsGroupedTarget()
+    if not UnitExists("target") then return false end
+    if UnitIsUnit("target", "player") then return false end
+    if UnitInParty("target") or UnitInRaid("target") then return true end
     local name = UnitName("target")
-    local _, classToken = UnitClass("target")
-    if not name or name == UnitName("player") or not IsGroupedName(name) then return end
-    if not ROLE_PRESETS[classToken] then return end
+    if name and IsGroupedName(name) then return true end
+    return false
+end
+
+local function ForEachGroupMemberOfClass(classToken, func)
+    local raid = GetNumRaidMembers()
+    if raid > 0 then
+        for i = 1, raid do
+            local unit = "raid"..i
+            if GetUnitClassToken(unit) == classToken then
+                local name = UnitName(unit)
+                if name and name ~= UnitName("player") then func(name) end
+            end
+        end
+    else
+        for i = 1, GetNumPartyMembers() do
+            local unit = "party"..i
+            if GetUnitClassToken(unit) == classToken then
+                local name = UnitName(unit)
+                if name and name ~= UnitName("player") then func(name) end
+            end
+        end
+    end
+end
+
+function UnBot:QueueRoleForBot(name, classToken, which, queryAfter)
+    local preset = ROLE_PRESETS[classToken]
+    local role = preset and preset[which]
+    if not role or not name then return false end
+
+    -- Send source-verified strategy commands matching original Warband presets.
+    -- vMaNGOS playerbots supports chained comma-separated syntax ("co -arms,-fury,+protection")
+    -- which applies changes atomically without chat throttle queue delays.
+    local off = role.off
+    local on = role.on
+    local parts = {}
+    for i = 1, table.getn(off) do
+        table.insert(parts, "-"..off[i])
+    end
+    for i = 1, table.getn(on) do
+        table.insert(parts, "+"..on[i])
+    end
+    if table.getn(parts) > 0 then
+        self:QueueChat("co "..table.concat(parts, ","), "WHISPER", name)
+    end
+    if queryAfter then
+        self:QueueChat("co ?", "WHISPER", name)
+    end
+    return true
+end
+
+function UnBot:ApplyRole(classToken, which)
+    local preset = ROLE_PRESETS[classToken]
+    local role = preset and preset[which]
+    if not role then return end
+
+    local targets = 0
+    ForEachGroupMemberOfClass(classToken, function(name)
+        if self:QueueRoleForBot(name, classToken, which, true) then
+            targets = targets + 1
+        end
+    end)
+
+    if targets == 0 then
+        self:Message("No "..string.lower(classToken).." in your group")
+    else
+        local className = string.upper(string.sub(classToken, 1, 1))
+                          ..string.lower(string.sub(classToken, 2))
+        self:Message(className.." - "..role.label.." applied to "..targets.." bot(s)")
+        if UnBotRoleFrame and UnBotRoleFrame:IsShown() then
+            self:RefreshRoleTarget(false)
+        end
+    end
+end
+
+function UnBot:GetSelectedRoleTarget()
+    if not IsGroupedTarget() then return end
+    local name = UnitName("target")
+    local classToken = GetUnitClassToken("target")
+    if not name or not classToken or not ROLE_PRESETS[classToken] then return end
     return name, classToken
 end
 
@@ -180,10 +242,9 @@ function UnBot:ApplySelectedRole(which)
         return
     end
     local role = ROLE_PRESETS[classToken][which]
-    if self:QueueRoleForBot(name, classToken, which, false) then
+    if self:QueueRoleForBot(name, classToken, which, true) then
         if UnBotRoleFrame then
-            UnBotRoleFrame.statusText:SetText("Role change sent: "..role.label
-                                              .." - click Check role")
+            UnBotRoleFrame.statusText:SetText("Applying: "..role.label.."...")
         end
         self:Message(role.label.." combat strategy applied to "..name)
     end
@@ -191,8 +252,10 @@ end
 
 function UnBot:ParseCombatStrategies(sender, msg)
     if not sender or not msg then return false end
-    local _, _, list = string.find(msg, "Combat Strategies:%s*(.*)")
+    local _, _, list = string.find(msg, "[Cc]ombat [Ss]trategies:%s*(.*)")
     if not list then return false end
+
+    local cleanSender = string.gsub(sender, "%-.*$", "")
 
     if not self.botCombatStrategies then self.botCombatStrategies = {} end
     local record = { text = list, active = {} }
@@ -200,15 +263,46 @@ function UnBot:ParseCombatStrategies(sender, msg)
     for strategy in iter(list, "[^,]+") do
         local clean = string.gsub(strategy, "^%s+", "")
         clean = string.gsub(clean, "%s+$", "")
-        if clean ~= "" then record.active[clean] = true end
+        if clean ~= "" then
+            record.active[clean] = true
+            record.active[string.lower(clean)] = true
+        end
     end
+    self.botCombatStrategies[cleanSender] = record
     self.botCombatStrategies[sender] = record
     if UnBotRoleFrame and UnBotRoleFrame:IsShown() then self:RefreshRoleTarget(false) end
+    if UnBotStrategyFrame and UnBotStrategyFrame:IsShown() then self:RefreshStrategies() end
+    return true
+end
+
+function UnBot:ParseNonCombatStrategies(sender, msg)
+    if not sender or not msg then return false end
+    local _, _, list = string.find(msg, "[Nn]on%-[Cc]ombat [Ss]trategies:%s*(.*)")
+    if not list then return false end
+
+    local cleanSender = string.gsub(sender, "%-.*$", "")
+
+    if not self.botNonCombatStrategies then self.botNonCombatStrategies = {} end
+    local record = { text = list, active = {} }
+    local iter = string.gmatch or string.gfind
+    for strategy in iter(list, "[^,]+") do
+        local clean = string.gsub(strategy, "^%s+", "")
+        clean = string.gsub(clean, "%s+$", "")
+        if clean ~= "" then
+            record.active[clean] = true
+            record.active[string.lower(clean)] = true
+        end
+    end
+    self.botNonCombatStrategies[cleanSender] = record
+    self.botNonCombatStrategies[sender] = record
+    if UnBotStrategyFrame and UnBotStrategyFrame:IsShown() then self:RefreshStrategies() end
     return true
 end
 
 function UnBot:GetBotRoleLabel(name, classToken)
-    local record = self.botCombatStrategies and self.botCombatStrategies[name]
+    if not name then return "Not checked" end
+    local cleanName = string.gsub(name, "%-.*$", "")
+    local record = self.botCombatStrategies and (self.botCombatStrategies[cleanName] or self.botCombatStrategies[name])
     local preset = ROLE_PRESETS[classToken]
     if not record or not preset then return "Not checked" end
 
@@ -218,9 +312,11 @@ function UnBot:GetBotRoleLabel(name, classToken)
         local matched = false
         for i = 1, table.getn(role.on) do
             local wanted = role.on[i]
+            local lowerWanted = string.lower(wanted)
             for active in pairs(record.active) do
-                if active == wanted
-                   or string.find(" "..active.." ", " "..wanted.." ", 1, true) then
+                local lowerActive = string.lower(active)
+                if lowerActive == lowerWanted
+                   or string.find(" "..lowerActive.." ", " "..lowerWanted.." ", 1, true) then
                     matched = true
                     break
                 end
@@ -259,6 +355,9 @@ local SPECIAL_GROUP = {
     ["onyxia's lair"]     = "instance",
     ["prince malchezaar"] = "instance",
     ["four horseman"]     = "instance",
+    ["blackwing lair"]    = "instance",
+    ["suppression room"]  = "instance",
+    ["avoid specific creatures"] = "instance",
     ["isle"]              = "instance",
     ["eye"]               = "instance",
 
@@ -272,10 +371,62 @@ local SPECIAL_GROUP = {
     ["start duel"]   = "pvp",
     ["pvp"]          = "pvp",
     ["nowar"]        = "pvp",
+
+    ["kite"]                = "movement",
+    ["runaway"]             = "movement",
+    ["flee from adds"]      = "movement",
+    ["avoid mobs"]          = "movement",
+    ["avoid aoe"]           = "tactics",
+    ["pull back"]           = "tactics",
+    ["pull"]                = "tactics",
+    ["wait for attack"]     = "tactics",
+    ["mark rti"]            = "tactics",
+    ["focus rti targets"]   = "tactics",
+    ["focus heal targets"]  = "tactics",
+    ["tank assist"]         = "tactics",
+    ["dps assist"]          = "tactics",
+    ["dps aoe"]             = "tactics",
+    ["threat"]              = "tactics",
+    ["passive"]             = "tactics",
+    ["conserve mana"]       = "upkeep",
+    ["potions"]             = "upkeep",
+    ["food"]                = "upkeep",
+    ["racials"]             = "tactics",
+    ["cast time"]           = "tactics",
+
+    ["rpg"]             = "rpg",
+    ["rpg quest"]       = "rpg",
+    ["rpg vendor"]      = "rpg",
+    ["rpg explore"]     = "rpg",
+    ["rpg maintenance"] = "rpg",
+    ["rpg craft"]       = "rpg",
+    ["rpg player"]      = "rpg",
+    ["rpg bg"]          = "rpg",
 }
+
+local BASE_GENERIC_STRATEGIES = {
+    "kite", "avoid aoe", "focus heal targets", "focus rti targets",
+    "pull back", "tank assist", "dps assist", "dps aoe", "threat", "passive",
+    "avoid mobs", "flee from adds", "conserve mana", "mark rti",
+    "wait for attack", "racials", "potions", "food", "cast time",
+    "rpg", "rpg quest", "rpg vendor", "rpg explore", "rpg maintenance",
+    "rpg craft", "rpg player", "rpg bg"
+}
+
+function UnBot:InitDefaultStrategies()
+    if self.config.strategies == nil then self.config.strategies = {} end
+    if self.config.strategies.generic == nil then self.config.strategies.generic = {} end
+    for i = 1, table.getn(BASE_GENERIC_STRATEGIES) do
+        local strat = BASE_GENERIC_STRATEGIES[i]
+        if not self.config.strategies.generic[strat] then
+            self.config.strategies.generic[strat] = strat
+        end
+    end
+end
 
 -- { {category, items, class}, ... } - class sections first, then generic.
 function UnBot:BuildStrategyTree()
+    self:InitDefaultStrategies()
     local tree  = {}
     local store = self.config.strategies
     if not store then return tree end
@@ -355,7 +506,7 @@ function UnBot:ShowStrategyWindow()
     local target = self:GetBotTarget()
     if not target then return end
 
-    local _, classToken = UnitClass("target")
+    local classToken = GetUnitClassToken("target")
     if not classToken then classToken = string.upper(UnitClass("target") or "") end
 
     if not UnBotStrategyFrame then self:CreateStrategyFrame() end
@@ -418,15 +569,17 @@ function UnBot:RefreshRoleTarget(queryServer)
     end
 
     local preset = ROLE_PRESETS[classToken]
+    local label = self:GetBotRoleLabel(name, classToken)
     UnBotRoleFrame.targetName = name
     UnBotRoleFrame.targetText:SetText("Selected: "..name)
-    UnBotRoleFrame.statusText:SetText("Current combat strategy: "
-                                      ..self:GetBotRoleLabel(name, classToken))
+    UnBotRoleFrame.statusText:SetText("Current combat strategy: "..label)
     UnBotRoleFrame.primaryButton:SetText(preset.primary.label)
     UnBotRoleFrame.secondaryButton:SetText(preset.secondary.label)
     UnBotRoleFrame.primaryButton:Enable()
     UnBotRoleFrame.secondaryButton:Enable()
-    if queryServer then self:QueueChat("co ?", "WHISPER", name) end
+    if queryServer or label == "Not checked" then
+        self:QueueChat("co ?", "WHISPER", name)
+    end
 end
 
 function UnBot:CreateRoleFrame()
@@ -455,6 +608,10 @@ function UnBot:CreateRoleFrame()
     title:SetPoint("TOP", f, "TOP", 0, -8)
     title:SetTextColor(1, 0.82, 0)
     title:SetText("Roles")
+
+    local close = CreateFrame("Button", "UnBotRoleClose", f, "UIPanelCloseButton")
+    close:SetPoint("TOPRIGHT", f, "TOPRIGHT", -4, -4)
+    close:SetScript("OnClick", function() f:Hide() end)
 
     local targetText = f:CreateFontString(nil, "OVERLAY")
     targetText:SetFont(UnBotFont, 11)
@@ -666,6 +823,7 @@ function UnBot:SetStrategy(name, sign)
     local cmd = self.strategyMode.." "..sign..name
     SendChatMessage(cmd, "WHISPER", nil, self.strategyTarget)
     self:Message(cmd.." -> "..self.strategyTarget)
+    SendChatMessage(self.strategyMode, "WHISPER", nil, self.strategyTarget)
 end
 
 --=========================================================================--

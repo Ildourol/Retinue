@@ -95,7 +95,7 @@ function UnBot:ParseServerRoster(msg)
 
     for entry in iter(list, "[^,]+") do
         -- each entry looks like " -Andorian Druid"
-        local _, _, status, name, class = string.find(entry, "([%+%-]?)%s*(%a+)%s+(%a+)")
+        local _, _, status, name, class = string.find(entry, "([%+%-]?)%s*([%a%d_]+)%s+([%a%d_]+)")
         if name and class then
             local record = self.config.roster[name] or {}
             record.class  = string.upper(class)
@@ -359,7 +359,7 @@ function UnBot:InviteBot(name)
     end
 
     -- A party caps at five, so make room before the fifth invite.
-    if GetNumPartyMembers() == 4 and GetNumRaidMembers() == 0 then
+    if (GetNumPartyMembers() >= 4) and GetNumRaidMembers() == 0 then
         ConvertToRaid()
     end
 
