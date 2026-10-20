@@ -53,7 +53,7 @@ end
 local ROSTER_EVENTS = {
     "CHAT_MSG_SYSTEM", "CHAT_MSG_WHISPER", "CHAT_MSG_SAY", "CHAT_MSG_PARTY",
     "CHAT_MSG_YELL", "CHAT_MSG_RAID", "CHAT_MSG_MONSTER_WHISPER",
-    "CHAT_MSG_MONSTER_SAY", "CHAT_MSG_CHANNEL", "CHAT_MSG_EMOTE",
+    "CHAT_MSG_MONSTER_SAY", "CHAT_MSG_CHANNEL", "CHAT_MSG_EMOTE", "CHAT_MSG_ADDON",
 }
 
 function UnBot:InitRosterEvents()
@@ -66,7 +66,13 @@ function UnBot:InitRosterEvents()
             DEFAULT_CHAT_FRAME:AddMessage("|cff888888[UnBot "..tostring(event).."] "
                                           ..tostring(arg1).."|r")
         end
-        UnBot:ParseServerRoster(arg1)
+        if event == "CHAT_MSG_ADDON" then
+            if arg1 == "TBM" and arg2 then
+                UnBot:ParseServerRoster(arg2)
+            end
+        else
+            UnBot:ParseServerRoster(arg1)
+        end
     end)
 end
 
@@ -79,36 +85,98 @@ local function CleanChat(msg)
     return msg
 end
 
+local CLASS_ID_TO_TOKEN = {
+    [1]  = "WARRIOR",
+    [2]  = "PALADIN",
+    [3]  = "HUNTER",
+    [4]  = "ROGUE",
+    [5]  = "PRIEST",
+    [7]  = "SHAMAN",
+    [8]  = "MAGE",
+    [9]  = "WARLOCK",
+    [11] = "DRUID",
+}
+
 function UnBot:RequestServerRoster()
-    SendChatMessage(".bot list", "SAY")
+    -- Sends .bot roster (modern TortoiseBots TBM protocol)
+    SendChatMessage(".bot roster", "SAY")
 end
 
 function UnBot:ParseServerRoster(msg)
     if not msg then return end
     msg = CleanChat(msg)
 
-    local _, _, list = string.find(msg, "[Bb]ot roster:%s*(.+)")
-    if not list then return end
-
-    local iter = string.gmatch or string.gfind
-    local found = 0
-
-    for entry in iter(list, "[^,]+") do
-        -- each entry looks like " -Andorian Druid"
-        local _, _, status, name, class = string.find(entry, "([%+%-]?)%s*([%a%d_]+)%s+([%a%d_]+)")
-        if name and class then
-            local record = self.config.roster[name] or {}
-            record.class  = string.upper(class)
-            record.online = (status == "+")
-            record.level  = record.level or 0
-            self.config.roster[name] = record
-            found = found + 1
-        end
+    -- Protocol 1: Modern TortoiseBots TBM:ROSTER protocol
+    if string.find(msg, "^TBM:ROSTER_BEGIN") then
+        self.tbmRosterCount = 0
+        return
     end
 
-    if found > 0 then
-        self:Message("Roster updated from server: "..found.." character(s)")
-        self:RefreshRoster()
+    if string.find(msg, "^TBM:ROSTER|") then
+        -- Format: TBM:ROSTER|<guidCounter>|<name>|<classId>|<state>|<grouped>|<location>
+        local _, _, counter, name, classId, state, grouped, location =
+            string.find(msg, "^TBM:ROSTER|(%d+)|([^|]+)|(%d+)|([^|]+)|(%d+)|?(.*)")
+        if name and classId then
+            local record = self.config.roster[name] or {}
+            local cid = tonumber(classId) or 1
+            record.class    = CLASS_ID_TO_TOKEN[cid] or "WARRIOR"
+            record.online   = (state ~= "offline")
+            record.level    = record.level or 0
+            record.grouped  = (tonumber(grouped) == 1)
+            record.location = location or ""
+            self.config.roster[name] = record
+            self.tbmRosterCount = (self.tbmRosterCount or 0) + 1
+        end
+        return
+    end
+
+    if string.find(msg, "^TBM:ROSTER_END") then
+        if (self.tbmRosterCount or 0) > 0 then
+            self:Message("Roster updated via TBM: "..self.tbmRosterCount.." character(s)")
+            self:RefreshRoster()
+        end
+        return
+    end
+
+    if string.find(msg, "^TBM:ALTBOTS|") then
+        local _, _, alts = string.find(msg, "^TBM:ALTBOTS|(.*)")
+        if alts and alts ~= "" then
+            local iter = string.gmatch or string.gfind
+            for altName in iter(alts, "[^,]+") do
+                altName = string.gsub(altName, "^%s+", "")
+                altName = string.gsub(altName, "%s+$", "")
+                if self.config.roster[altName] then
+                    self.config.roster[altName].altbot = true
+                end
+            end
+        end
+        return
+    end
+
+    -- Protocol 2: Fallback for legacy .bot list responses
+    local _, _, list = string.find(msg, "[Bb]ot roster:%s*(.+)")
+    if list then
+        local iter = string.gmatch or string.gfind
+        local found = 0
+
+        for entry in iter(list, "[^,]+") do
+            -- each entry looks like " -Andorian Druid"
+            local _, _, status, name, class = string.find(entry, "([%+%-]?)%s*([%a%d_]+)%s+([%a%d_]+)")
+            if name and class then
+                local record = self.config.roster[name] or {}
+                record.class  = string.upper(class)
+                record.online = (status == "+")
+                record.level  = record.level or 0
+                self.config.roster[name] = record
+                found = found + 1
+            end
+        end
+
+        if found > 0 then
+            self:Message("Roster updated from server (legacy list): "..found.." character(s)")
+            self:RefreshRoster()
+        end
+        return
     end
 end
 

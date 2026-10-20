@@ -47,6 +47,8 @@ end)
 
 -- mangosbot server commands take a character name. These send
 -- ".bot <sub> <target>" for whoever you have selected.
+-- mangosbot server commands take a character name. These send
+-- ".bot <sub> <target>" for whoever you have selected.
 local function ServerCommandOnTarget(id)
     local name = UnitName("target")
     if not name or name == "" then
@@ -56,12 +58,64 @@ local function ServerCommandOnTarget(id)
     SendChatMessage(UnBotExecuteCommand[id].." "..name, "SAY")
 end
 
-UnBot:RegisterHandler(2,  ServerCommandOnTarget)   -- init gear
-UnBot:RegisterHandler(86, ServerCommandOnTarget)   -- log bot out
-UnBot:RegisterHandler(87, ServerCommandOnTarget)   -- log bot in
+UnBot:RegisterHandler(2,   ServerCommandOnTarget)   -- autogear bot
+UnBot:RegisterHandler(86,  ServerCommandOnTarget)   -- log bot out
+UnBot:RegisterHandler(87,  ServerCommandOnTarget)   -- log bot in
+UnBot:RegisterHandler(169, ServerCommandOnTarget)   -- maintenance for bot
 
--- [70] Tell the group to drop combat. Sent once to party chat rather than as
--- a per-name GM command.
+-- [3] Autogear all group bots
+UnBot:RegisterHandler(3, function()
+    local count = 0
+    ForEachGroupMember(function(name)
+        UnBot:QueueChat(".bot autogear "..name, "SAY")
+        count = count + 1
+    end)
+    if count > 0 then
+        UnBot:Message("Queued autogear for "..count.." party bot(s)")
+    else
+        UnBot:Message("No group bots to gear")
+    end
+end)
+
+-- [82] Cleanly log out all group bots using queued per-bot commands
+UnBot:RegisterHandler(82, function()
+    local count = 0
+    ForEachGroupMember(function(name)
+        UnBot:QueueChat(".bot remove "..name, "SAY")
+        count = count + 1
+    end)
+    if count > 0 then
+        UnBot:Message("Queued logout for "..count.." party bot(s)")
+        if UnBot.QueueRosterStatusSync then UnBot:QueueRosterStatusSync() end
+    else
+        UnBot:Message("No group bots to log out")
+    end
+end)
+
+-- [83] Cleanly log in offline roster bots
+UnBot:RegisterHandler(83, function()
+    local count = 0
+    if UnBot.config and UnBot.config.roster then
+        for name, data in pairs(UnBot.config.roster) do
+            if not data.self and not data.online then
+                UnBot:QueueChat(".bot add "..name, "SAY")
+                count = count + 1
+            end
+        end
+    end
+    if count > 0 then
+        UnBot:Message("Queued login for "..count.." offline bot(s)")
+        if UnBot.QueueRosterStatusSync then UnBot:QueueRosterStatusSync() end
+    else
+        UnBot:Message("No offline roster bots to log in")
+    end
+end)
+
+-- [70] Tell the group to stop combat and clear queues
+UnBot:RegisterHandler(70, function()
+    SendChatMessage(".bot action stop", "SAY")
+    UnBot:Message("Sent combat stop to party bots")
+end)
 
 -- [71] Send the party home, then disband every bot.
 UnBot:RegisterHandler(71, function()
@@ -73,14 +127,11 @@ UnBot:RegisterHandler(71, function()
     UnBot:Message("Disbanded party bots")
 end)
 
--- [80] Ready check. Vanilla 1.12 has no DoReadyCheck; fall back to a party
--- message so the command still does something meaningful.
+-- [80] Server-side ready check
 UnBot:RegisterHandler(80, function()
+    SendChatMessage(".bot action ready", "SAY")
     if DoReadyCheck then
         DoReadyCheck()
-    else
-        SendChatMessage("Ready check - please respond", "PARTY")
-        UnBot:Message("This client has no ready-check API; sent a party message instead")
     end
 end)
 
