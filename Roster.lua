@@ -22,8 +22,19 @@ local CLASS_COLOR = {
     DRUID   = {1.00, 0.49, 0.04},
 }
 
-local ROW_COUNT  = 12
+local ROW_COUNT  = 11
 local ROW_HEIGHT = 22
+
+-- Suppress raw TBM protocol system messages from polluting player's chat frame
+local origChatFrame_OnEvent = ChatFrame_OnEvent
+ChatFrame_OnEvent = function(event)
+    if event == "CHAT_MSG_SYSTEM" and arg1 and string.find(arg1, "^TBM:") then
+        return
+    end
+    if type(origChatFrame_OnEvent) == "function" then
+        return origChatFrame_OnEvent(event)
+    end
+end
 
 --=========================================================================--
 --  Data
@@ -35,6 +46,7 @@ function UnBot:InitRoster()
 
     if self.config.roster == nil then self.config.roster = {} end
     self.rosterFilter = "ALL"
+    self.rosterSearchQuery = nil
     self.rosterOffset = 0
     self.rosterSelection = {}
     self:RecordCurrentCharacter()
@@ -44,10 +56,13 @@ end
 --=========================================================================--
 --  Server roster
 --
---  mangosbot answers ".bot list" (and volunteers it after ".bot add") with
+--  TortoiseBots answers ".bot roster" with structured TBM lines:
+--      TBM:ROSTER_BEGIN|<count>
+--      TBM:ROSTER|<counter>|<name>|<classId>|<state>|<grouped>|<location>
+--      TBM:ROSTER_END
+--      TBM:ALTBOTS|<names>
+--  Legacy mangosbot answers ".bot list" with:
 --      Bot roster: -Andorian Druid, +Dezwo Warrior, ...
---  where "-" is logged out and "+" is logged in. Reading that line gives us
---  the whole account roster with classes, so nothing has to be typed in.
 --=========================================================================--
 
 local ROSTER_EVENTS = {
@@ -131,10 +146,9 @@ function UnBot:ParseServerRoster(msg)
     end
 
     if string.find(msg, "^TBM:ROSTER_END") then
-        if (self.tbmRosterCount or 0) > 0 then
-            self:Message("Roster updated via TBM: "..self.tbmRosterCount.." character(s)")
-            self:RefreshRoster()
-        end
+        local count = self.tbmRosterCount or 0
+        self:Message("Roster synchronized with server: "..count.." character(s)")
+        self:RefreshRoster()
         return
     end
 
@@ -202,11 +216,17 @@ function UnBot:RemoveRosterCharacter(name)
     end
 end
 
--- Names matching the active class filter, alphabetically.
+-- Names matching the active class filter and search query, alphabetically.
 function UnBot:GetFilteredRoster()
     local out = {}
+    local query = self.rosterSearchQuery
     for name, data in pairs(self.config.roster) do
-        if self.rosterFilter == "ALL" or data.class == self.rosterFilter then
+        local matchesClass = (self.rosterFilter == "ALL" or data.class == self.rosterFilter)
+        local matchesSearch = true
+        if query and query ~= "" then
+            matchesSearch = string.find(string.lower(name), query, 1, true) ~= nil
+        end
+        if matchesClass and matchesSearch then
             table.insert(out, name)
         end
     end
@@ -255,20 +275,79 @@ function UnBot:CreateRosterFrame()
 
     local title = f:CreateFontString(nil, "OVERLAY")
     title:SetFont(UnBotFont, 15)
-    title:SetPoint("TOP", f, "TOP", 0, -16)
+    title:SetPoint("TOP", f, "TOP", 0, -14)
     title:SetTextColor(1, 0.82, 0)
     title:SetText("Player roster")
 
     local close = CreateFrame("Button", "UnBotRosterClose", f, "UIPanelCloseButton")
     close:SetPoint("TOPRIGHT", f, "TOPRIGHT", -8, -8)
 
+    self:CreateRosterSearchBar(f)
     self:CreateClassFilters(f)
     self:CreateRosterRows(f)
     self:CreateBulkButtons(f)
 end
 
--- ".bot add *" only covers characters already in your group, so loading a
--- whole roster means one command per name, spaced out by the chat queue.
+function UnBot:CreateRosterSearchBar(parent)
+    local search = CreateFrame("EditBox", "UnBotRosterSearch", parent)
+    search:SetWidth(276)
+    search:SetHeight(22)
+    search:SetPoint("TOPLEFT", parent, "TOPLEFT", 126, -38)
+    search:SetAutoFocus(false)
+    search:SetFontObject(GameFontHighlightSmall)
+    search:SetBackdrop({
+        bgFile   = "Interface\\Tooltips\\UI-Tooltip-Background",
+        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+        tile = true, tileSize = 16, edgeSize = 12,
+        insets = { left = 3, right = 3, top = 3, bottom = 3 }
+    })
+    search:SetBackdropColor(0, 0, 0, 0.8)
+    search:SetTextInsets(6, 20, 0, 0)
+
+    local placeholder = search:CreateFontString(nil, "OVERLAY")
+    placeholder:SetFont(UnBotFont, 11)
+    placeholder:SetPoint("LEFT", search, "LEFT", 8, 0)
+    placeholder:SetTextColor(0.5, 0.5, 0.5)
+    placeholder:SetText("Search bots by name...")
+    self.rosterSearchPlaceholder = placeholder
+
+    local clearBtn = CreateFrame("Button", "UnBotRosterSearchClear", search)
+    clearBtn:SetWidth(16)
+    clearBtn:SetHeight(16)
+    clearBtn:SetPoint("RIGHT", search, "RIGHT", -4, 0)
+    clearBtn:SetNormalTexture("Interface\\Buttons\\UI-GroupLoot-Pass-Up")
+    clearBtn:SetHighlightTexture("Interface\\Buttons\\UI-GroupLoot-Pass-Highlight")
+    clearBtn:SetScript("OnClick", function()
+        search:SetText("")
+        search:ClearFocus()
+    end)
+
+    search:SetScript("OnTextChanged", function()
+        local text = this:GetText() or ""
+        text = string.gsub(text, "^%s+", "")
+        text = string.gsub(text, "%s+$", "")
+        if text == "" then
+            UnBot.rosterSearchQuery = nil
+            if UnBot.rosterSearchPlaceholder then UnBot.rosterSearchPlaceholder:Show() end
+        else
+            UnBot.rosterSearchQuery = string.lower(text)
+            if UnBot.rosterSearchPlaceholder then UnBot.rosterSearchPlaceholder:Hide() end
+        end
+        UnBot.rosterOffset = 0
+        UnBot:RefreshRoster()
+    end)
+
+    search:SetScript("OnEscapePressed", function()
+        this:SetText("")
+        this:ClearFocus()
+    end)
+    search:SetScript("OnEnterPressed", function()
+        this:ClearFocus()
+    end)
+
+    self.rosterSearchBox = search
+end
+
 function UnBot:CreateBulkButtons(parent)
     local function MakeButton(name, label, x, y, width, handler, tooltip)
         local btn = CreateFrame("Button", name, parent, "UIPanelButtonTemplate")
@@ -287,55 +366,53 @@ function UnBot:CreateBulkButtons(parent)
         return btn
     end
 
-    MakeButton("UnBotRosterFillGroup", "Fill group", 18, -312, 94, function()
+    -- Row 1: Group and raid filling & bulk management
+    MakeButton("UnBotRosterFillGroup", "Fill group", 18, -324, 94, function()
         UnBot:FillWith(5)
-    end, "Reconnects offline group bots, then fills free party slots from the selected class filter.")
+    end, "Brings offline bots online and immediately invites filtered characters to fill remaining 5-man party slots.")
 
-    MakeButton("UnBotRosterFillRaid", "Fill raid", 116, -312, 94, function()
+    MakeButton("UnBotRosterFillRaid", "Fill raid", 116, -324, 94, function()
         UnBot:FillWith(40)
-    end, "Reconnects offline group bots, then fills free raid slots from the selected class filter.")
+    end, "Converts to raid if needed, bringing bots online and inviting filtered characters up to 40 slots.")
 
-    MakeButton("UnBotRosterUnloadAll", "Log out filtered", 214, -312, 94, function()
+    MakeButton("UnBotRosterUnloadAll", "Log out filtered", 214, -324, 96, function()
         UnBot:BulkBotCommand("remove")
-    end, "Logs out every roster character matching the selected class filter, including scrolled-off rows.")
+    end, "Logs out every roster character matching the active class and search filter.")
 
-    MakeButton("UnBotRosterAddFriends", "Add friends", 312, -312, 94, function()
+    MakeButton("UnBotRosterAddFriends", "Add friends", 314, -324, 96, function()
         UnBot:RunCommand(88)
-    end, "Adds your current party or raid members to the friends list. This ignores the class filter.")
+    end, "Adds your current party or raid members to the friends list.")
 
-    MakeButton("UnBotRosterRemoveSelected", "Remove selected", 18, -342, 126, function()
+    -- Row 2: Selected actions and quick refresh
+    MakeButton("UnBotRosterRemoveSelected", "Remove selected", 18, -354, 118, function()
         UnBot:RemoveSelectedFromGroup()
-    end, "Removes checked bots from your current party or raid without logging them out.")
+    end, "Uninvites checked bots from your group via .bot uninvite without logging them out.")
 
-    MakeButton("UnBotRosterLogoutSelected", "Log out selected", 152, -342, 126, function()
+    MakeButton("UnBotRosterLogoutSelected", "Log out selected", 140, -354, 118, function()
         UnBot:LogoutSelectedBots()
-    end, "Logs out the checked bots. Their roster status updates automatically.")
+    end, "Logs out checked bots via .bot remove.")
 
-    MakeButton("UnBotRosterClearSelection", "Clear selection", 286, -342, 120, function()
+    MakeButton("UnBotRosterClearSelection", "Clear select", 262, -354, 90, function()
         UnBot:ClearRosterSelection()
-    end, "Clears every roster checkbox, including checked names hidden by the class filter.")
+    end, "Clears all checked roster boxes.")
+
+    MakeButton("UnBotRosterRefreshBtn", "Sync", 356, -354, 54, function()
+        UnBot:RequestServerRoster()
+    end, "Requests live roster and online status from the server via .bot roster.")
 end
 
--- ".bot add" only logs the character in; joining the group is a separate
--- invite, and it has to wait until the bot is actually in the world.
--- Time between ".bot add" and the invite. The server reports the character as
--- logged in well before it can accept an invite, so this is generous and a
--- second pass mops up anyone who was still not ready.
-local LOGIN_GRACE      = 4
-local RETRY_GAP        = 3
-local STATUS_SYNC_DELAY = 1
+local LOGIN_GRACE       = 2.5
+local STATUS_SYNC_DELAY = 1.0
 
--- Ask for authoritative status shortly after queued add/remove commands. This
--- keeps an open roster current without making the user press Refresh.
+-- Ask for authoritative status shortly after queued add/remove commands.
 function UnBot:QueueRosterStatusSync()
     self:QueueWait(STATUS_SYNC_DELAY)
     self:QueueAction(function() UnBot:RequestServerRoster() end)
 end
 
--- UnitInParty/UnitInRaid take a unit id. On 1.12, passing a name that is not
--- a nearby unit raises "Unknown unit name" instead of returning nil, so group
--- membership has to be checked by walking the slots.
+-- Checks whether a character name is currently in the player's party or raid.
 local function IsInGroup(name)
+    if not name then return false end
     if name == UnitName("player") then return true end
 
     local raid = GetNumRaidMembers()
@@ -347,18 +424,6 @@ local function IsInGroup(name)
         for i = 1, GetNumPartyMembers() do
             if UnitName("party"..i) == name then return true end
         end
-    end
-    return false
-end
-
--- Vanilla exposes InviteByName; TBC and later renamed it to InviteUnit.
-local function RemoveFromGroup(name)
-    if type(UninviteByName) == "function" then
-        UninviteByName(name)
-        return true
-    elseif type(UninviteUnit) == "function" then
-        UninviteUnit(name)
-        return true
     end
     return false
 end
@@ -379,26 +444,36 @@ function UnBot:ClearRosterSelection()
     self:RefreshRoster()
 end
 
+-- Uninvites selected bots from group using modern TortoiseBots .bot uninvite
 function UnBot:RemoveSelectedFromGroup()
     local names = self:GetSelectedRosterNames()
-    local removed = 0
+    if table.getn(names) == 0 then
+        self:Message("No bots selected (check boxes next to characters)")
+        return
+    end
+
+    local queued = 0
     for i = 1, table.getn(names) do
-        if IsInGroup(names[i]) and RemoveFromGroup(names[i]) then
-            removed = removed + 1
+        local name = names[i]
+        if IsInGroup(name) then
+            self:QueueChat(".bot uninvite "..name, "SAY")
+            queued = queued + 1
         end
     end
     self:ClearRosterSelection()
-    if removed == 0 then
-        self:Message("None of the selected bots are in your group")
+    self:QueueRosterStatusSync()
+
+    if queued == 0 then
+        self:Message("None of the selected bots are in your current group")
     else
-        self:Message("Removing "..removed.." selected bot(s) from the group")
+        self:Message("Uninviting "..queued.." selected bot(s) from group")
     end
 end
 
 function UnBot:LogoutSelectedBots()
     local names = self:GetSelectedRosterNames()
     if table.getn(names) == 0 then
-        self:Message("No bots selected")
+        self:Message("No bots selected (check boxes next to characters)")
         return
     end
     for i = 1, table.getn(names) do
@@ -409,45 +484,34 @@ function UnBot:LogoutSelectedBots()
     self:Message("Logging out "..table.getn(names).." selected bot(s)")
 end
 
-local function SendInvite(name)
-    if type(InviteByName) == "function" then
-        InviteByName(name)
-        return true
-    elseif type(InviteUnit) == "function" then
-        InviteUnit(name)
-        return true
-    end
-    return false
-end
-
+-- Invites bot to group via native TortoiseBots .bot invite command
+-- Automatically accepts invitation in the bot AI and joins group/raid
 function UnBot:InviteBot(name)
+    if not name or name == "" then return end
     if IsInGroup(name) then
-        if self.debug then self:Message("skip "..name..": already grouped") end
+        if self.debug then self:Message("skip "..name..": already in group") end
         return
     end
 
-    -- A party caps at five, so make room before the fifth invite.
-    if (GetNumPartyMembers() >= 4) and GetNumRaidMembers() == 0 then
-        ConvertToRaid()
-    end
-
-    if not SendInvite(name) then
-        self:Message("This client exposes no invite function - invite "..name.." manually")
-        return
-    end
-    if self.debug then
-        self:Message("InviteByName("..name..")")
-    end
+    self:QueueChat(".bot invite "..name, "SAY")
+    self:QueueRosterStatusSync()
 end
 
 function UnBot:LoginAndInvite(name)
-    self:QueueChat(".bot add "..name, "SAY")
-    self:QueueRosterStatusSync()
-    self:QueueWait(LOGIN_GRACE - STATUS_SYNC_DELAY)
-    self:QueueAction(function() UnBot:InviteBot(name) end)
-    -- InviteBot bails out if they already joined, so a retry is harmless
-    self:QueueWait(RETRY_GAP)
-    self:QueueAction(function() UnBot:InviteBot(name) end)
+    if not name or name == "" then return end
+    local data = self.config.roster[name]
+    local isOnline = data and data.online
+
+    if isOnline then
+        -- Bot is already in the world, invite directly
+        self:InviteBot(name)
+    else
+        -- Bot is offline, bring online and invite
+        self:QueueChat(".bot add "..name, "SAY")
+        self:QueueWait(LOGIN_GRACE)
+        self:QueueAction(function() UnBot:InviteBot(name) end)
+        self:QueueRosterStatusSync()
+    end
 end
 
 -- How many bodies are in the group right now, counting yourself.
@@ -458,30 +522,29 @@ local function GroupSize()
 end
 
 -- Log in and invite as many of the shown characters as will fit.
--- maxSize 5 fills a party, 40 fills a raid; the conversion to raid happens
--- automatically in InviteBot once the party is full.
 function UnBot:FillWith(maxSize)
     local free = maxSize - GroupSize()
     local names = self:GetFilteredRoster()
     local me = UnitName("player")
 
-    -- A logged-out bot can still occupy a party slot. Reconnect those bots
-    -- regardless of free space, then use genuinely free slots for new bots.
     local reconnect = {}
-    local offline = {}
-    local fallback = {}
+    local onlineNotInGroup = {}
+    local offlineNotInGroup = {}
+
     for i = 1, table.getn(names) do
         local name = names[i]
         if name ~= me then
             local data = self.config.roster[name]
             local grouped = IsInGroup(name)
-            if grouped and data and data.online == false then
+            local isOnline = data and data.online
+
+            if grouped and not isOnline then
                 table.insert(reconnect, name)
             elseif not grouped then
-                if data and data.online == false then
-                    table.insert(offline, name)
+                if isOnline then
+                    table.insert(onlineNotInGroup, name)
                 else
-                    table.insert(fallback, name)
+                    table.insert(offlineNotInGroup, name)
                 end
             end
         end
@@ -493,58 +556,48 @@ function UnBot:FillWith(maxSize)
             pool[i], pool[j] = pool[j], pool[i]
         end
     end
-    Shuffle(offline)
-    Shuffle(fallback)
+    Shuffle(onlineNotInGroup)
+    Shuffle(offlineNotInGroup)
 
-    local pool = {}
-    for i = 1, table.getn(offline) do table.insert(pool, offline[i]) end
-    for i = 1, table.getn(fallback) do table.insert(pool, fallback[i]) end
+    local candidates = {}
+    for i = 1, table.getn(onlineNotInGroup) do table.insert(candidates, onlineNotInGroup[i]) end
+    for i = 1, table.getn(offlineNotInGroup) do table.insert(candidates, offlineNotInGroup[i]) end
 
     local picked = {}
-    for i = 1, table.getn(pool) do
+    for i = 1, table.getn(candidates) do
         if i > free then break end
-        table.insert(picked, pool[i])
+        table.insert(picked, candidates[i])
     end
 
-    local targets = {}
-    for i = 1, table.getn(reconnect) do table.insert(targets, reconnect[i]) end
-    for i = 1, table.getn(picked) do table.insert(targets, picked[i]) end
-
-    local count = table.getn(targets)
-    if self.debug then
-        self:Message("fill: "..free.." free, "..table.getn(reconnect)
-                     .." reconnecting, "..table.getn(picked).." picked")
-    end
-    if count == 0 then
+    local totalToAdd = table.getn(reconnect) + table.getn(picked)
+    if totalToAdd == 0 then
         if free <= 0 then
-            self:Message("Group is already full")
+            self:Message("Group is already full ("..GroupSize().."/"..maxSize..")")
         else
-            self:Message("No characters left to add from this list")
+            self:Message("No matching characters available to fill group")
         end
         return
     end
 
-    for i = 1, count do
-        self:QueueChat(".bot add "..targets[i], "SAY")
+    -- Reconnect offline group bots
+    for i = 1, table.getn(reconnect) do
+        self:QueueChat(".bot add "..reconnect[i], "SAY")
     end
+
+    -- For picked bots: invite immediately if online, or add then invite if offline
+    for i = 1, table.getn(picked) do
+        local name = picked[i]
+        local data = self.config.roster[name]
+        if data and data.online then
+            self:InviteBot(name)
+        else
+            self:LoginAndInvite(name)
+        end
+    end
+
     self:QueueRosterStatusSync()
-    self:QueueWait(LOGIN_GRACE - STATUS_SYNC_DELAY)
-    for i = 1, count do
-        local name = targets[i]
-        self:QueueAction(function() UnBot:InviteBot(name) end)
-    end
-
-    -- second pass for anyone who was not ready yet
-    self:QueueWait(RETRY_GAP)
-    for i = 1, count do
-        local name = targets[i]
-        self:QueueAction(function() UnBot:InviteBot(name) end)
-    end
-
-    local what = "party"
-    if maxSize > 5 then what = "raid" end
-    self:Message("Filling "..what.." with "..count.." bot(s), about "
-                 ..string.format("%.0f", count * 1.2 + LOGIN_GRACE + RETRY_GAP).."s")
+    local what = maxSize > 5 and "raid" or "party"
+    self:Message("Filling "..what..": "..table.getn(picked).." new, "..table.getn(reconnect).." reconnecting")
 end
 
 function UnBot:BulkBotCommand(subcommand)
@@ -556,41 +609,19 @@ function UnBot:BulkBotCommand(subcommand)
     end
 
     local me = UnitName("player")
-
-    if subcommand == "add" then
-        -- log everyone in first, then invite them once they are in the world
-        local queued = 0
-        for i = 1, count do
-            if names[i] ~= me then
-                self:QueueChat(".bot add "..names[i], "SAY")
-                queued = queued + 1
-            end
+    local queued = 0
+    for i = 1, count do
+        local name = names[i]
+        if name ~= me then
+            self:QueueChat(".bot remove "..name, "SAY")
+            queued = queued + 1
         end
-        if queued == 0 then
-            self:Message("Nothing to log in")
-            return
-        end
+    end
+    if queued > 0 then
         self:QueueRosterStatusSync()
-        self:QueueWait(LOGIN_GRACE - STATUS_SYNC_DELAY)
-        for i = 1, count do
-            if names[i] ~= me then
-                local name = names[i]
-                self:QueueAction(function() UnBot:InviteBot(name) end)
-            end
-        end
-        self:Message("Logging in and inviting "..queued.." character(s), about "
-                     ..string.format("%.0f", queued * 0.8 + LOGIN_GRACE).."s")
+        self:Message("Logging out "..queued.." character(s)")
     else
-        local queued = 0
-        for i = 1, count do
-            if names[i] ~= me then
-                self:QueueChat(".bot remove "..names[i], "SAY")
-                queued = queued + 1
-            end
-        end
-        if queued > 0 then self:QueueRosterStatusSync() end
-        self:Message("Logging out "..queued.." character(s), about "
-                     ..string.format("%.0f", queued * 0.4).."s")
+        self:Message("Nothing to log out")
     end
 end
 
@@ -607,7 +638,7 @@ function UnBot:CreateClassFilters(parent)
         local btn = CreateFrame("Button", "UnBotClassFilter"..class, parent)
         btn:SetWidth(96)
         btn:SetHeight(22)
-        btn:SetPoint("TOPLEFT", parent, "TOPLEFT", 18, -42 - (i - 1) * 24)
+        btn:SetPoint("TOPLEFT", parent, "TOPLEFT", 18, -38 - (i - 1) * 24)
         btn.class = class
 
         btn:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight", "ADD")
@@ -647,7 +678,7 @@ function UnBot:CreateRosterRows(parent)
         local row = CreateFrame("Button", "UnBotRosterRow"..i, parent)
         row:SetWidth(276)
         row:SetHeight(ROW_HEIGHT)
-        row:SetPoint("TOPLEFT", parent, "TOPLEFT", 126, -42 - (i - 1) * ROW_HEIGHT)
+        row:SetPoint("TOPLEFT", parent, "TOPLEFT", 126, -66 - (i - 1) * ROW_HEIGHT)
         row:RegisterForClicks("LeftButtonUp", "RightButtonUp")
         row:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight", "ADD")
 
@@ -686,16 +717,27 @@ function UnBot:CreateRosterRows(parent)
                     UnBot:RefreshRoster()
                     return
                 end
-                UnBot:QueueChat(".bot remove "..this.charName, "SAY")
-                UnBot:QueueRosterStatusSync()
-                UnBot:Message("Logging out "..this.charName)
+                if IsInGroup(this.charName) then
+                    UnBot:QueueChat(".bot uninvite "..this.charName, "SAY")
+                    UnBot:QueueRosterStatusSync()
+                    UnBot:Message("Removing "..this.charName.." from group")
+                else
+                    UnBot:QueueChat(".bot remove "..this.charName, "SAY")
+                    UnBot:QueueRosterStatusSync()
+                    UnBot:Message("Logging out "..this.charName)
+                end
             elseif IsShiftKeyDown() then
                 UnBot:QueueChat(".bot add "..this.charName, "SAY")
                 UnBot:QueueRosterStatusSync()
                 UnBot:Message("Logging in "..this.charName.." without inviting")
             else
-                UnBot:LoginAndInvite(this.charName)
-                UnBot:Message("Logging in and inviting "..this.charName)
+                if IsInGroup(this.charName) then
+                    TargetByName(this.charName)
+                    UnBot:Message(this.charName.." is already in your group (targeted)")
+                else
+                    UnBot:LoginAndInvite(this.charName)
+                    UnBot:Message("Inviting "..this.charName)
+                end
             end
         end)
 
@@ -703,11 +745,16 @@ function UnBot:CreateRosterRows(parent)
             if not this.charName then return end
             GameTooltip:SetOwner(this, "ANCHOR_RIGHT")
             GameTooltip:AddLine(this.charName, 1, 0.82, 0)
-            GameTooltip:AddLine("Checkbox: select for bulk remove or logout", 0.65, 0.75, 1)
-            GameTooltip:AddLine("Left-click: log in and invite", 0.65, 0.55, 0)
-            GameTooltip:AddLine("Shift+left-click: log in only", 0.65, 0.55, 0)
-            GameTooltip:AddLine("Right-click: log out", 0.65, 0.55, 0)
-            GameTooltip:AddLine("Shift+right-click: drop from this list", 0.6, 0.6, 0.6)
+            local data = UnBot.config.roster[this.charName]
+            if data and data.class then
+                local c = CLASS_COLOR[data.class] or {1, 1, 1}
+                GameTooltip:AddLine(data.class, c[1], c[2], c[3])
+            end
+            GameTooltip:AddLine("Checkbox: select for bulk actions", 0.65, 0.75, 1)
+            GameTooltip:AddLine("Left-click: invite / bring into party", 0.3, 1, 0.3)
+            GameTooltip:AddLine("Right-click: remove from group / log out", 1, 0.5, 0.3)
+            GameTooltip:AddLine("Shift+left-click: log in only (stay solo)", 0.8, 0.8, 0.8)
+            GameTooltip:AddLine("Shift+right-click: drop from roster list", 0.6, 0.6, 0.6)
             GameTooltip:Show()
         end)
         row:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -751,6 +798,7 @@ function UnBot:RefreshRoster()
         if name then
             local data = self.config.roster[name]
             local c = CLASS_COLOR[data.class] or {1, 1, 1}
+            local grouped = IsInGroup(name)
             row.charName = name
             row.nameText:SetTextColor(c[1], c[2], c[3])
 
@@ -764,11 +812,14 @@ function UnBot:RefreshRoster()
                 row.selectCheck:SetChecked(self.rosterSelection[name] and 1 or nil)
                 row.selectCheck:Show()
                 row.nameText:SetText(name)
-                if data.online then
-                    row.levelText:SetText("logged in")
+                if grouped then
+                    row.levelText:SetText("in group")
+                    row.levelText:SetTextColor(0.2, 0.9, 0.9)
+                elseif data.online then
+                    row.levelText:SetText("online")
                     row.levelText:SetTextColor(0.3, 1, 0.3)
                 elseif data.online == false then
-                    row.levelText:SetText("logged out")
+                    row.levelText:SetText("offline")
                     row.levelText:SetTextColor(0.6, 0.6, 0.6)
                 elseif data.level and data.level > 0 then
                     row.levelText:SetText("level "..data.level)
