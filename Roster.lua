@@ -50,6 +50,7 @@ function UnBot:InitRoster()
     self.rosterOffset = 0
     self.rosterSelection = {}
     self:RecordCurrentCharacter()
+    self:ScanGroupBots()
     self:InitRosterEvents()
 end
 
@@ -69,6 +70,7 @@ local ROSTER_EVENTS = {
     "CHAT_MSG_SYSTEM", "CHAT_MSG_WHISPER", "CHAT_MSG_SAY", "CHAT_MSG_PARTY",
     "CHAT_MSG_YELL", "CHAT_MSG_RAID", "CHAT_MSG_MONSTER_WHISPER",
     "CHAT_MSG_MONSTER_SAY", "CHAT_MSG_CHANNEL", "CHAT_MSG_EMOTE", "CHAT_MSG_ADDON",
+    "PARTY_MEMBERS_CHANGED", "RAID_ROSTER_UPDATE", "PLAYER_TARGET_CHANGED",
 }
 
 function UnBot:InitRosterEvents()
@@ -77,6 +79,18 @@ function UnBot:InitRosterEvents()
         f:RegisterEvent(ROSTER_EVENTS[i])
     end
     f:SetScript("OnEvent", function()
+        if event == "PARTY_MEMBERS_CHANGED" or event == "RAID_ROSTER_UPDATE" then
+            UnBot:ScanGroupBots()
+            UnBot:RefreshRoster()
+            return
+        elseif event == "PLAYER_TARGET_CHANGED" then
+            if UnitExists("target") and UnitIsPlayer("target") and UnitIsFriend("player", "target") then
+                UnBot:ScanGroupBots()
+                UnBot:RefreshRoster()
+            end
+            return
+        end
+
         if UnBot.debug and arg1 then
             DEFAULT_CHAT_FRAME:AddMessage("|cff888888[UnBot "..tostring(event).."] "
                                           ..tostring(arg1).."|r")
@@ -112,9 +126,98 @@ local CLASS_ID_TO_TOKEN = {
     [11] = "DRUID",
 }
 
+-- Automatically scans current party, raid, and friendly target to register live bots
+function UnBot:ScanGroupBots()
+    local found = 0
+    local function CheckUnit(unit)
+        if not UnitExists(unit) then return end
+        local name = UnitName(unit)
+        if not name or name == "" or name == UnitName("player") then return end
+        local _, classToken = UnitClass(unit)
+        local level = UnitLevel(unit)
+        local entry = UnBot.config.roster[name] or {}
+        entry.class = classToken or entry.class or "WARRIOR"
+        entry.level = (level and level > 0) and level or entry.level or 0
+        entry.online = true
+        entry.grouped = true
+        UnBot.config.roster[name] = entry
+        found = found + 1
+    end
+
+    if UnitInRaid("player") then
+        local n = GetNumRaidMembers()
+        for i = 1, n do CheckUnit("raid"..i) end
+    else
+        local n = GetNumPartyMembers()
+        for i = 1, n do CheckUnit("party"..i) end
+    end
+
+    if UnitExists("target") and UnitIsPlayer("target") and UnitIsFriend("player", "target") then
+        CheckUnit("target")
+    end
+
+    return found
+end
+
+-- Adds a character to the roster with name normalization
+function UnBot:AddRosterCharacter(name, classToken, level)
+    if not name or name == "" then return end
+    name = string.gsub(name, "^%s+", "")
+    name = string.gsub(name, "%s+$", "")
+    if name == "" then return end
+    name = string.upper(string.sub(name, 1, 1)) .. string.lower(string.sub(name, 2))
+
+    local entry = self.config.roster[name] or {}
+    entry.class = classToken or entry.class or "WARRIOR"
+    entry.level = (level and level > 0) and level or entry.level or 0
+    if entry.online == nil then entry.online = false end
+    entry.grouped = IsInGroup(name)
+    self.config.roster[name] = entry
+
+    self:Message("Added bot '"..name.."' ("..entry.class..") to player roster")
+    self:RefreshRoster()
+    return name
+end
+
+-- Quick action: add current target to roster
+function UnBot:AddTargetToRoster()
+    if not UnitExists("target") then
+        self:Message("Select a friendly bot or character first to add them")
+        return
+    end
+    if not UnitIsPlayer("target") then
+        self:Message("Target must be a player or bot character")
+        return
+    end
+    local name = UnitName("target")
+    if not name or name == "" then return end
+    if name == UnitName("player") then
+        self:Message("That is you - you are already in the roster")
+        return
+    end
+    local _, classToken = UnitClass("target")
+    local level = UnitLevel("target")
+    local isFriend = UnitIsFriend("player", "target")
+    self:AddRosterCharacter(name, classToken, level)
+    if isFriend then
+        self.config.roster[name].online = true
+        self.config.roster[name].grouped = IsInGroup(name)
+    end
+    self:RefreshRoster()
+end
+
 function UnBot:RequestServerRoster()
-    -- Sends .bot roster (modern TortoiseBots TBM protocol)
+    -- 1. Scan local party/raid and friendly target immediately
+    self:ScanGroupBots()
+
+    -- 2. Pull authoritative account alts via .bot roster (TBM protocol)
     SendChatMessage(".bot roster", "SAY")
+
+    -- 3. Also pull online bot instances in world via .bot list
+    SendChatMessage(".bot list", "SAY")
+
+    self:Message("Syncing roster with server and group...")
+    self:RefreshRoster()
 end
 
 function UnBot:ParseServerRoster(msg)
@@ -134,10 +237,10 @@ function UnBot:ParseServerRoster(msg)
         if name and classId then
             local record = self.config.roster[name] or {}
             local cid = tonumber(classId) or 1
-            record.class    = CLASS_ID_TO_TOKEN[cid] or "WARRIOR"
+            record.class    = CLASS_ID_TO_TOKEN[cid] or record.class or "WARRIOR"
             record.online   = (state ~= "offline")
             record.level    = record.level or 0
-            record.grouped  = (tonumber(grouped) == 1)
+            record.grouped  = (tonumber(grouped) == 1) or IsInGroup(name)
             record.location = location or ""
             self.config.roster[name] = record
             self.tbmRosterCount = (self.tbmRosterCount or 0) + 1
@@ -167,7 +270,34 @@ function UnBot:ParseServerRoster(msg)
         return
     end
 
-    -- Protocol 2: Fallback for legacy .bot list responses
+    -- Protocol 2: TortoiseBots .bot list output
+    -- Format: "<name>: in world, random <0|1>, AI <0|1>"
+    local _, _, botName, botWorldState = string.find(msg, "^([%a%d_]+):%s*([%a%s]+),%s*random")
+    if botName then
+        local record = self.config.roster[botName] or {}
+        record.online = (botWorldState == "in world" or botWorldState == "starting")
+        record.class  = record.class or "WARRIOR"
+        record.level  = record.level or 0
+        record.grouped = IsInGroup(botName)
+        self.config.roster[botName] = record
+        self:RefreshRoster()
+        return
+    end
+
+    -- Protocol 3: TortoiseBots .bot add feedback
+    -- Format: "Bot <name> queued for login; it will follow <player>..."
+    local _, _, addedBot = string.find(msg, "^Bot%s+([%a%d_]+)%s+queued for login")
+    if addedBot then
+        local record = self.config.roster[addedBot] or {}
+        record.online = true
+        record.class  = record.class or "WARRIOR"
+        record.grouped = true
+        self.config.roster[addedBot] = record
+        self:RefreshRoster()
+        return
+    end
+
+    -- Protocol 4: Fallback for legacy .bot list responses
     local _, _, list = string.find(msg, "[Bb]ot roster:%s*(.+)")
     if list then
         local iter = string.gmatch or string.gfind
@@ -181,6 +311,7 @@ function UnBot:ParseServerRoster(msg)
                 record.class  = string.upper(class)
                 record.online = (status == "+")
                 record.level  = record.level or 0
+                record.grouped = IsInGroup(name)
                 self.config.roster[name] = record
                 found = found + 1
             end
@@ -244,8 +375,9 @@ function UnBot:ToggleRoster()
         UnBotRosterFrame:Hide()
     else
         UnBotRosterFrame:Show()
+        self:ScanGroupBots()
         self:RefreshRoster()
-        self:RequestServerRoster()   -- pull the authoritative list
+        self:RequestServerRoster()   -- pull authoritative list and world instances
     end
 end
 
@@ -342,6 +474,16 @@ function UnBot:CreateRosterSearchBar(parent)
         this:ClearFocus()
     end)
     search:SetScript("OnEnterPressed", function()
+        local text = this:GetText() or ""
+        text = string.gsub(text, "^%s+", "")
+        text = string.gsub(text, "%s+$", "")
+        if text ~= "" then
+            local normName = string.upper(string.sub(text, 1, 1)) .. string.lower(string.sub(text, 2))
+            if not UnBot.config.roster[normName] then
+                UnBot:AddRosterCharacter(normName)
+                this:SetText("")
+            end
+        end
         this:ClearFocus()
     end)
 
@@ -669,6 +811,22 @@ function UnBot:CreateClassFilters(parent)
 
         self.classButtons[class] = btn
     end
+
+    local addTargetBtn = CreateFrame("Button", "UnBotRosterAddTargetBtn", parent, "UIPanelButtonTemplate")
+    addTargetBtn:SetWidth(96)
+    addTargetBtn:SetHeight(22)
+    addTargetBtn:SetPoint("TOPLEFT", parent, "TOPLEFT", 18, -282)
+    addTargetBtn:SetText("+ Target")
+    addTargetBtn:SetScript("OnClick", function()
+        UnBot:AddTargetToRoster()
+    end)
+    addTargetBtn:SetScript("OnEnter", function()
+        GameTooltip:SetOwner(this, "ANCHOR_RIGHT")
+        GameTooltip:AddLine("+ Target", 1, 0.82, 0)
+        GameTooltip:AddLine("Add your currently selected friendly player or bot directly to the roster.", 0.75, 0.75, 0.75, 1)
+        GameTooltip:Show()
+    end)
+    addTargetBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
 end
 
 function UnBot:CreateRosterRows(parent)
@@ -706,6 +864,15 @@ function UnBot:CreateRosterRows(parent)
         row.levelText = level
 
         row:SetScript("OnClick", function()
+            if this.isAddButton and this.charName then
+                UnBot:AddRosterCharacter(this.charName)
+                if UnBot.rosterSearchBox then
+                    UnBot.rosterSearchBox:SetText("")
+                end
+                UnBot.rosterSearchQuery = nil
+                UnBot:RefreshRoster()
+                return
+            end
             if not this.charName then return end
             if this.charName == UnitName("player") then
                 UnBot:Message("That one is you - you are already in the world")
@@ -742,6 +909,13 @@ function UnBot:CreateRosterRows(parent)
         end)
 
         row:SetScript("OnEnter", function()
+            if this.isAddButton and this.charName then
+                GameTooltip:SetOwner(this, "ANCHOR_RIGHT")
+                GameTooltip:AddLine("+ Add "..this.charName, 0.3, 1, 0.3)
+                GameTooltip:AddLine("Click or press Enter to add '"..this.charName.."' to your roster.", 0.8, 0.8, 0.8, 1)
+                GameTooltip:Show()
+                return
+            end
             if not this.charName then return end
             GameTooltip:SetOwner(this, "ANCHOR_RIGHT")
             GameTooltip:AddLine(this.charName, 1, 0.82, 0)
@@ -791,11 +965,15 @@ function UnBot:RefreshRoster()
     end
 
     local names = self:GetFilteredRoster()
+    local searchQ = self.rosterSearchQuery
+    local showAddRow = (searchQ and searchQ ~= "" and table.getn(names) == 0)
+
     for i = 1, ROW_COUNT do
         local row = self.rosterRows[i]
         local name = names[i + self.rosterOffset]
 
         if name then
+            row.isAddButton = nil
             local data = self.config.roster[name]
             local c = CLASS_COLOR[data.class] or {1, 1, 1}
             local grouped = IsInGroup(name)
@@ -829,7 +1007,19 @@ function UnBot:RefreshRoster()
                 end
             end
             row:Show()
+        elseif showAddRow and i == 1 then
+            local normName = string.upper(string.sub(searchQ, 1, 1)) .. string.lower(string.sub(searchQ, 2))
+            row.charName = normName
+            row.isAddButton = true
+            row.selectCheck:SetChecked(nil)
+            row.selectCheck:Hide()
+            row.nameText:SetTextColor(0.3, 1.0, 0.3)
+            row.nameText:SetText("+ Add \""..normName.."\"")
+            row.levelText:SetTextColor(0.7, 0.7, 0.7)
+            row.levelText:SetText("(Click or Enter)")
+            row:Show()
         else
+            row.isAddButton = nil
             row.charName = nil
             row.selectCheck:SetChecked(nil)
             row.selectCheck:Hide()
