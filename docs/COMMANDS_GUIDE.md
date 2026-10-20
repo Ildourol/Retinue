@@ -136,8 +136,8 @@ All inbound status reports and machine-readable protocol messages prefixed with 
 | **165** | Rebuff party | Whole Party (`/party`) | `rebuff` | Orders bots to top off expiring party buffs out of combat (2-minute refresh pass). |
 | **99** | Eat (rest) | Whole Party (`/party`) | `.bot action rest` | Orders bots to sit down and eat food to restore health. |
 | **81** | Drink (rest) | Whole Party (`/party`) | `.bot action rest` | Orders all mana-using bots to sit down and drink water to restore mana. |
-| **166** | Mimic consumables | Whole Party (`/party`) | `.bot behavior party mimic` | Toggles consumable mimicry: bots drink matching potions/elixirs when the player drinks one. |
-| **178** | Potions engine | Whole Party (`/party`) | `.bot behavior party potions` | Enables automated combat potion and healthstone consumption when health drops critical. |
+| **166** | Mimic consumables | Whole Party (`/party`) | `.bot behavior party mimic on` | Enables consumable mimicry: bots drink matching potions/elixirs when the player drinks one. |
+| **178** | Potions engine | Whole Party (`/party`) | `.bot behavior party potions on` | Enables automated combat potion and healthstone consumption when health drops critical. |
 | **167** | Drop totems | Whole Party (`/party`) | `.bot totem party drop` | Orders party Shamans to drop their configured totem set immediately. |
 
 #### Section: Activities
@@ -273,8 +273,8 @@ All inbound status reports and machine-readable protocol messages prefixed with 
 #### Section: Combat Behaviors
 | ID | Label | Scope | Native Command / Chat | Tactical Action & Server Behavior |
 |:---|:---|:---|:---|:---|
-| **176** | Threat back-off | Whole Party (`/party`) | `.bot behavior party threat` | Directs non-tank bots to ease off attacks when approaching the tank's threat ceiling. |
-| **177** | Offensive boost | Whole Party (`/party`) | `.bot behavior party boost` | Allows bots to activate major offensive cooldowns, racials, and trinkets during boss fights. |
+| **176** | Threat back-off | Whole Party (`/party`) | `.bot behavior party threat on` | Directs non-tank bots to ease off attacks when approaching the tank's threat ceiling. |
+| **177** | Offensive boost | Whole Party (`/party`) | `.bot behavior party boost on` | Allows bots to activate major offensive cooldowns, racials, and trinkets during boss fights. |
 
 #### Section: Raid Tactics
 | ID | Label | Scope | Native Command / Chat | Tactical Action & Server Behavior |
@@ -627,7 +627,7 @@ The **Player Roster** is an interactive full-screen management interface rather 
 | **163** | Movement & Stances | Come to me | Whole Party (`/party`) | `.bot action come` | Commands all party bots to drop current movement targets and immediately sprint to player coordinates. |
 | **164** | Support & Upkeep | Corpse run | Whole Party (`/party`) | `.bot action corpse run` | Commands all dead spirit bots to immediately run back to their corpses or instance entrance. |
 | **165** | Support & Upkeep | Rebuff party | Whole Party (`/party`) | `rebuff` | Orders bots to top off expiring party buffs out of combat (2-minute refresh pass). |
-| **166** | Support & Upkeep | Mimic consumables | Whole Party (`/party`) | `.bot behavior party mimic` | Toggles consumable mimicry: bots drink matching potions/elixirs when the player drinks one. |
+| **166** | Support & Upkeep | Mimic consumables | Whole Party (`/party`) | `.bot behavior party mimic on` | Enables consumable mimicry: bots drink matching potions/elixirs when the player drinks one. |
 | **167** | Support & Upkeep | Drop totems | Whole Party (`/party`) | `.bot totem party drop` | Orders party Shamans to drop their configured totem set immediately. |
 | **168** | Inventory & Trade | Trade with bot | Selected Bot (`/whisper`) | `.bot action trade` | Opens a direct trade window with the targeted companion bot. |
 | **169** | Party Management | Maintenance | Selected Bot (`/whisper`) | `.bot maintenance` | Restocks reagents, consumables, and ammunition for the selected bot without visiting vendors. |
@@ -637,9 +637,9 @@ The **Player Roster** is an interactive full-screen management interface rather 
 | **173** | Movement & Stances | Wander mode | Whole Party (`/party`) | `wander` | Toggles free autonomous roaming and exploration when out of combat. |
 | **174** | Combat | Single burn (focus) | Whole Party (`/party`) | `co ~focus` | Toggles single-target focus burn via native `co ~focus`: suppresses AoE and splash abilities to protect CC targets. |
 | **175** | Combat | Toggle AoE fear | Whole Party (`/party`) | `co ~aoe fear` | Toggles AoE fear spells (Psychic Scream, Howl of Terror, Intimidating Shout) via native `co ~aoe fear` (off by default in instances). |
-| **176** | Strategy & Tactics | Threat back-off | Whole Party (`/party`) | `.bot behavior party threat` | Directs non-tank bots to ease off attacks when approaching the tank's threat ceiling. |
-| **177** | Strategy & Tactics | Offensive boost | Whole Party (`/party`) | `.bot behavior party boost` | Allows bots to activate major offensive cooldowns, racials, and trinkets during boss fights. |
-| **178** | Support & Upkeep | Potions engine | Whole Party (`/party`) | `.bot behavior party potions` | Enables automated combat potion and healthstone consumption when health drops critical. |
+| **176** | Strategy & Tactics | Threat back-off | Whole Party (`/party`) | `.bot behavior party threat on` | Directs non-tank bots to ease off attacks when approaching the tank's threat ceiling. |
+| **177** | Strategy & Tactics | Offensive boost | Whole Party (`/party`) | `.bot behavior party boost on` | Allows bots to activate major offensive cooldowns, racials, and trinkets during boss fights. |
+| **178** | Support & Upkeep | Potions engine | Whole Party (`/party`) | `.bot behavior party potions on` | Enables automated combat potion and healthstone consumption when health drops critical. |
 | **179** | Utilities & World | Share quests | Whole Party (`/party`) | `share` | Shares all eligible quests from the bot's log with group members. |
 | **180** | Utilities & World | Bind hearthstone | Selected Bot (`/whisper`) | `home` | Interacts with the nearest innkeeper to bind the bot's hearthstone. |
 | **181** | Utilities & World | Taxi flight | Selected Bot (`/whisper`) | `taxi` | Purchases a flight path from the nearest flight master. |
