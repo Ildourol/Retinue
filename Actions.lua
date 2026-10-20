@@ -9,7 +9,7 @@ local ACTION_BUTTON_HEIGHT = 24
 local ACTION_MAX_COLS      = 3
 local ACTION_COL_GAP       = 6
 local ACTION_ROW_HEIGHT    = 26
-local ACTION_ROW_COUNT     = 14
+local ACTION_ROW_COUNT     = 18
 local ACTION_POOL_SIZE     = ACTION_MAX_COLS * ACTION_ROW_COUNT
 local ACTION_SECTION_GAP   = 14
 local ACTION_SECTION_MAX   = 6
@@ -267,6 +267,56 @@ function UnBot:ConfirmClearFavorites()
     StaticPopup_Show("UNBOT_CLEAR_FAVORITES")
 end
 
+function UnBot:GetActionButton(index)
+    local f = self.actionGroupFrame
+    if not f then return nil end
+    if f.buttons and f.buttons[index] then
+        return f.buttons[index]
+    end
+
+    local button = CreateFrame("Button", "UnBotActionButton"..index, f)
+    button:SetWidth(ACTION_BUTTON_WIDTH)
+    button:SetHeight(ACTION_BUTTON_HEIGHT)
+    button:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight",
+                               "ADD")
+    button:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+
+    local icon = button:CreateTexture("UnBotActionIcon"..index, "ARTWORK")
+    icon:SetWidth(20)
+    icon:SetHeight(20)
+    icon:SetPoint("LEFT", button, "LEFT", 2, 0)
+    button.icon = icon
+
+    local label = button:CreateFontString("UnBotActionLabel"..index,
+                                          "OVERLAY")
+    label:SetFont(UnBotFont, 10)
+    label:SetPoint("LEFT", icon, "RIGHT", 4, 0)
+    label:SetPoint("RIGHT", button, "RIGHT", -3, 0)
+    label:SetJustifyH("LEFT")
+    label:SetTextColor(0.9, 0.9, 0.9)
+    button.label = label
+
+    button:SetScript("OnClick", function()
+        if not this.commandId then return end
+        if arg1 == "RightButton" then
+            UnBot:ToggleFavorite(this.commandId)
+        else
+            UnBot:RunCommand(this.commandId)
+        end
+    end)
+    button:SetScript("OnEnter", function()
+        if this.commandId then
+            UnBot:ShowCommandTooltip(this, this.commandId, "action")
+        end
+    end)
+    button:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
+    button:Hide()
+    if not f.buttons then f.buttons = {} end
+    f.buttons[index] = button
+    return button
+end
+
 function UnBot:CreateActionGroupFrame()
     local f = CreateFrame("Frame", "UnBotActionGroupFrame", UIParent)
     f:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
@@ -314,45 +364,7 @@ function UnBot:CreateActionGroupFrame()
 
     f.buttons = {}
     for index = 1, ACTION_POOL_SIZE do
-        local button = CreateFrame("Button", "UnBotActionButton"..index, f)
-        button:SetWidth(ACTION_BUTTON_WIDTH)
-        button:SetHeight(ACTION_BUTTON_HEIGHT)
-        button:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight",
-                                   "ADD")
-        button:RegisterForClicks("LeftButtonUp", "RightButtonUp")
-
-        local icon = button:CreateTexture("UnBotActionIcon"..index, "ARTWORK")
-        icon:SetWidth(20)
-        icon:SetHeight(20)
-        icon:SetPoint("LEFT", button, "LEFT", 2, 0)
-        button.icon = icon
-
-        local label = button:CreateFontString("UnBotActionLabel"..index,
-                                              "OVERLAY")
-        label:SetFont(UnBotFont, 10)
-        label:SetPoint("LEFT", icon, "RIGHT", 4, 0)
-        label:SetPoint("RIGHT", button, "RIGHT", -3, 0)
-        label:SetJustifyH("LEFT")
-        label:SetTextColor(0.9, 0.9, 0.9)
-        button.label = label
-
-        button:SetScript("OnClick", function()
-            if not this.commandId then return end
-            if arg1 == "RightButton" then
-                UnBot:ToggleFavorite(this.commandId)
-            else
-                UnBot:RunCommand(this.commandId)
-            end
-        end)
-        button:SetScript("OnEnter", function()
-            if this.commandId then
-                UnBot:ShowCommandTooltip(this, this.commandId, "action")
-            end
-        end)
-        button:SetScript("OnLeave", function() GameTooltip:Hide() end)
-
-        button:Hide()
-        f.buttons[index] = button
+        self:GetActionButton(index)
     end
 
     self.actionGroupFrame = f
@@ -462,9 +474,13 @@ function UnBot:RefreshActionGroup(groupIndex)
     f.title:SetText(self:GetActionGroupTitle(groupIndex))
 
     for index = 1, ACTION_SECTION_MAX do f.sectionHeaders[index]:Hide() end
-    for index = 1, ACTION_POOL_SIZE do
-        f.buttons[index].commandId = nil
-        f.buttons[index]:Hide()
+    local buttonPoolCount = table.getn(f.buttons)
+    if buttonPoolCount < ACTION_POOL_SIZE then buttonPoolCount = ACTION_POOL_SIZE end
+    for index = 1, buttonPoolCount do
+        if f.buttons[index] then
+            f.buttons[index].commandId = nil
+            f.buttons[index]:Hide()
+        end
     end
 
     if groupIndex == "favorites" then
@@ -473,16 +489,18 @@ function UnBot:RefreshActionGroup(groupIndex)
                 local poolIndex = (row - 1) * ACTION_MAX_COLS + col
                 local entryIndex = offset * columns + (row - 1) * columns + col
                 local entry = entries[entryIndex]
-                local button = f.buttons[poolIndex]
-                button:ClearAllPoints()
-                button:SetPoint("TOPLEFT", f, "TOPLEFT",
-                                18 + (col - 1) * (ACTION_BUTTON_WIDTH + ACTION_COL_GAP),
-                                -48 - (row - 1) * ACTION_ROW_HEIGHT)
-                if entry then
-                    button.commandId = entry.id
-                    button.icon:SetTexture(self:GetIconPath(entry.id))
-                    button.label:SetText(entry.label)
-                    button:Show()
+                local button = self:GetActionButton(poolIndex)
+                if button then
+                    button:ClearAllPoints()
+                    button:SetPoint("TOPLEFT", f, "TOPLEFT",
+                                    18 + (col - 1) * (ACTION_BUTTON_WIDTH + ACTION_COL_GAP),
+                                    -48 - (row - 1) * ACTION_ROW_HEIGHT)
+                    if entry then
+                        button.commandId = entry.id
+                        button.icon:SetTexture(self:GetIconPath(entry.id))
+                        button.label:SetText(entry.label)
+                        button:Show()
+                    end
                 end
             end
         end
@@ -506,20 +524,22 @@ function UnBot:RefreshActionGroup(groupIndex)
             local row = physicalRow + sectionRow + 1
             local poolIndex = (row - 1) * ACTION_MAX_COLS + col
             local entry = section.entries[sectionEntry]
-            local button = f.buttons[poolIndex]
-            button:ClearAllPoints()
-            button:SetPoint("TOPLEFT", f, "TOPLEFT",
-                            18 + (col - 1) * (ACTION_BUTTON_WIDTH + ACTION_COL_GAP),
-                            -48 - (row - 1) * ACTION_ROW_HEIGHT - gap)
-            button.commandId = entry.id
-            button.icon:SetTexture(self:GetIconPath(entry.id))
-            local label = entry.label
-            if type(self.IsFavorite) == "function" and self:IsFavorite(entry.id) then
-                label = "* "..label
+            local button = self:GetActionButton(poolIndex)
+            if button then
+                button:ClearAllPoints()
+                button:SetPoint("TOPLEFT", f, "TOPLEFT",
+                                18 + (col - 1) * (ACTION_BUTTON_WIDTH + ACTION_COL_GAP),
+                                -48 - (row - 1) * ACTION_ROW_HEIGHT - gap)
+                button.commandId = entry.id
+                button.icon:SetTexture(self:GetIconPath(entry.id))
+                local label = entry.label
+                if type(self.IsFavorite) == "function" and self:IsFavorite(entry.id) then
+                    label = "* "..label
+                end
+                button.label:SetText(label)
+                button.label:SetTextColor(0.9, 0.9, 0.9)
+                button:Show()
             end
-            button.label:SetText(label)
-            button.label:SetTextColor(0.9, 0.9, 0.9)
-            button:Show()
         end
         physicalRow = physicalRow
                       + math.ceil(table.getn(section.entries) / columns)
