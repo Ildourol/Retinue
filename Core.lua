@@ -555,8 +555,13 @@ end
 
 local pump = CreateFrame("Frame", "UnBotQueuePump")
 pump:SetScript("OnUpdate", function()
-    -- 1.12 passes the frame time as the global arg1, never as a parameter.
-    local elapsed = arg1 or 0
+    local now = GetTime()
+    local elapsed = (type(arg1) == "number" and arg1 > 0 and arg1 < 1) and arg1 or (UnBot.lastPumpTime and (now - UnBot.lastPumpTime) or 0)
+    UnBot.lastPumpTime = now
+
+    if UnBot.CheckPendingInvites then
+        UnBot:CheckPendingInvites()
+    end
 
     if UnBot.queueWait > 0 then
         UnBot.queueWait = UnBot.queueWait - elapsed

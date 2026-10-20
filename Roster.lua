@@ -80,6 +80,13 @@ function UnBot:InitRosterEvents()
     end
     f:SetScript("OnEvent", function()
         if event == "PARTY_MEMBERS_CHANGED" or event == "RAID_ROSTER_UPDATE" then
+            if UnBot.pendingInvites then
+                for pendingName, _ in pairs(UnBot.pendingInvites) do
+                    if IsInGroup(pendingName) then
+                        UnBot.pendingInvites[pendingName] = nil
+                    end
+                end
+            end
             UnBot:ScanGroupBots()
             UnBot:RefreshRoster()
             return
@@ -152,6 +159,34 @@ local function IsInGroup(selfOrName, maybeName)
     return false
 end
 UnBot.IsInGroup = IsInGroup
+
+-- Helper to perform native client party invitation (CMSG_GROUP_INVITE)
+local function NativeInvite(name)
+    if not name or name == "" then return false end
+    if type(InviteByName) == "function" then
+        InviteByName(name)
+        return true
+    elseif type(InviteUnit) == "function" then
+        InviteUnit(name)
+        return true
+    end
+    return false
+end
+UnBot.NativeInvite = NativeInvite
+
+-- Helper to perform native client party uninvitation (CMSG_GROUP_UNINVITE)
+local function NativeUninvite(name)
+    if not name or name == "" then return false end
+    if type(UninviteByName) == "function" then
+        UninviteByName(name)
+        return true
+    elseif type(UninviteUnit) == "function" then
+        UninviteUnit(name)
+        return true
+    end
+    return false
+end
+UnBot.NativeUninvite = NativeUninvite
 
 -- Automatically scans current party, raid, and friendly target to register live bots
 function UnBot:ScanGroupBots()
@@ -271,6 +306,10 @@ function UnBot:ParseServerRoster(msg)
             record.location = location or ""
             self.config.roster[name] = record
             self.tbmRosterCount = (self.tbmRosterCount or 0) + 1
+
+            if state == "online" and self.pendingInvites and self.pendingInvites[name] and not record.grouped then
+                self:InviteBot(name)
+            end
         end
         return
     end
@@ -301,12 +340,16 @@ function UnBot:ParseServerRoster(msg)
     -- Format: "<name>: in world, random <0|1>, AI <0|1>"
     local _, _, botName, botWorldState = string.find(msg, "^([%a%d_]+):%s*([%a%s]+),%s*random")
     if botName then
+        local inWorld = (botWorldState == "in world")
         local record = self.config.roster[botName] or {}
-        record.online = (botWorldState == "in world" or botWorldState == "starting")
+        record.online = (inWorld or botWorldState == "starting")
         record.class  = record.class or "WARRIOR"
         record.level  = record.level or 0
         record.grouped = IsInGroup(botName)
         self.config.roster[botName] = record
+        if inWorld and self.pendingInvites and self.pendingInvites[botName] and not record.grouped then
+            self:InviteBot(botName)
+        end
         self:RefreshRoster()
         return
     end
@@ -318,7 +361,7 @@ function UnBot:ParseServerRoster(msg)
         local record = self.config.roster[addedBot] or {}
         record.online = true
         record.class  = record.class or "WARRIOR"
-        record.grouped = true
+        record.grouped = IsInGroup(addedBot)
         self.config.roster[addedBot] = record
         self:RefreshRoster()
         return
@@ -596,7 +639,7 @@ function UnBot:ClearRosterSelection()
     self:RefreshRoster()
 end
 
--- Uninvites selected bots from group using modern TortoiseBots .bot uninvite
+-- Uninvites selected bots from group using modern TortoiseBots .bot uninvite and native uninvite
 function UnBot:RemoveSelectedFromGroup()
     local names = self:GetSelectedRosterNames()
     if table.getn(names) == 0 then
@@ -608,6 +651,7 @@ function UnBot:RemoveSelectedFromGroup()
     for i = 1, table.getn(names) do
         local name = names[i]
         if IsInGroup(name) then
+            NativeUninvite(name)
             self:QueueChat(".bot uninvite "..name, "SAY")
             queued = queued + 1
         end
@@ -629,14 +673,47 @@ function UnBot:LogoutSelectedBots()
         return
     end
     for i = 1, table.getn(names) do
-        self:QueueChat(".bot remove "..names[i], "SAY")
+        local name = names[i]
+        if IsInGroup(name) then
+            NativeUninvite(name)
+        end
+        self:QueueChat(".bot remove "..name, "SAY")
     end
     self:QueueRosterStatusSync()
     self:ClearRosterSelection()
     self:Message("Logging out "..table.getn(names).." selected bot(s)")
 end
 
--- Invites bot to group via native TortoiseBots .bot invite command
+UnBot.pendingInvites = UnBot.pendingInvites or {}
+
+function UnBot:StartPendingInvite(name)
+    if not name or name == "" then return end
+    self.pendingInvites[name] = {
+        startTime = GetTime(),
+        attempts = 0,
+        maxAttempts = 5,
+        nextAttempt = GetTime() + 1.8,
+    }
+end
+
+function UnBot:CheckPendingInvites()
+    local now = GetTime()
+    for name, info in pairs(self.pendingInvites or {}) do
+        if IsInGroup(name) then
+            self.pendingInvites[name] = nil
+        elseif now >= info.nextAttempt then
+            info.attempts = info.attempts + 1
+            self:InviteBot(name)
+            if info.attempts >= info.maxAttempts or (now - info.startTime) > 10.0 then
+                self.pendingInvites[name] = nil
+            else
+                info.nextAttempt = now + 2.0
+            end
+        end
+    end
+end
+
+-- Invites bot to group via native client API and TortoiseBots .bot invite command
 -- Automatically accepts invitation in the bot AI and joins group/raid
 function UnBot:InviteBot(name)
     if not name or name == "" then return end
@@ -645,23 +722,46 @@ function UnBot:InviteBot(name)
         return
     end
 
-    self:QueueChat(".bot invite "..name, "SAY")
-    self:QueueRosterStatusSync()
+    -- If party has 4 members (leader + 4 = 5 total), convert to raid before inviting 6th
+    if not UnitInRaid("player") and GetNumPartyMembers() >= 4 then
+        if type(ConvertToRaid) == "function" then
+            ConvertToRaid()
+        end
+    end
+
+    -- 1. Native WoW client invite packet (CMSG_GROUP_INVITE)
+    NativeInvite(name)
+
+    -- 2. Native TortoiseBots server command (.bot invite <name>)
+    -- Frees stale group, converts full party to raid, and triggers immediate AI acceptance
+    SendChatMessage(".bot invite "..name, "SAY")
+
+    -- 3. Queue status resync
+    if self.QueueRosterStatusSync then
+        self:QueueRosterStatusSync()
+    end
 end
 
 function UnBot:LoginAndInvite(name)
     if not name or name == "" then return end
+    if IsInGroup(name) then
+        TargetByName(name)
+        self:Message(name.." is already in your group (targeted)")
+        return
+    end
+
     local data = self.config.roster[name]
     local isOnline = data and data.online
 
     if isOnline then
-        -- Bot is already in the world, invite directly
+        -- Bot is already in world, invite immediately
         self:InviteBot(name)
+        -- Start monitoring in case of race condition or slow accept
+        self:StartPendingInvite(name)
     else
-        -- Bot is offline, bring online and invite
+        -- Bot is offline: bring online via .bot add and track pending invite
         self:QueueChat(".bot add "..name, "SAY")
-        self:QueueWait(LOGIN_GRACE)
-        self:QueueAction(function() UnBot:InviteBot(name) end)
+        self:StartPendingInvite(name)
         self:QueueRosterStatusSync()
     end
 end
@@ -675,6 +775,13 @@ end
 
 -- Log in and invite as many of the shown characters as will fit.
 function UnBot:FillWith(maxSize)
+    -- If filling raid, convert party to raid first so 6+ members can be invited
+    if maxSize > 5 and not UnitInRaid("player") and GetNumPartyMembers() > 0 then
+        if type(ConvertToRaid) == "function" then
+            ConvertToRaid()
+        end
+    end
+
     local free = maxSize - GroupSize()
     local names = self:GetFilteredRoster()
     local me = UnitName("player")
@@ -753,6 +860,7 @@ function UnBot:FillWith(maxSize)
 end
 
 function UnBot:BulkBotCommand(subcommand)
+    local cmd = subcommand or "remove"
     local names = self:GetFilteredRoster()
     local count = table.getn(names)
     if count == 0 then
@@ -765,13 +873,13 @@ function UnBot:BulkBotCommand(subcommand)
     for i = 1, count do
         local name = names[i]
         if name ~= me then
-            self:QueueChat(".bot remove "..name, "SAY")
+            self:QueueChat(".bot "..cmd.." "..name, "SAY")
             queued = queued + 1
         end
     end
     if queued > 0 then
         self:QueueRosterStatusSync()
-        self:Message("Logging out "..queued.." character(s)")
+        self:Message("Dispatched '.bot "..cmd.."' for "..queued.." character(s)")
     else
         self:Message("Nothing to log out")
     end
@@ -895,6 +1003,7 @@ function UnBot:CreateRosterRows(parent)
                     return
                 end
                 if IsInGroup(this.charName) then
+                    NativeUninvite(this.charName)
                     UnBot:QueueChat(".bot uninvite "..this.charName, "SAY")
                     UnBot:QueueRosterStatusSync()
                     UnBot:Message("Removing "..this.charName.." from group")
