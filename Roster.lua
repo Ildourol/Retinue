@@ -126,6 +126,33 @@ local CLASS_ID_TO_TOKEN = {
     [11] = "DRUID",
 }
 
+-- Checks whether a character name is currently in the player's party or raid.
+local function IsInGroup(selfOrName, maybeName)
+    local name = maybeName or selfOrName
+    if type(name) ~= "string" or name == "" then return false end
+    local lowerName = string.lower(name)
+    local pName = UnitName("player")
+    if pName and string.lower(pName) == lowerName then return true end
+
+    local raid = GetNumRaidMembers()
+    if raid and raid > 0 then
+        for i = 1, raid do
+            local rName = UnitName("raid"..i)
+            if rName and string.lower(rName) == lowerName then return true end
+        end
+    else
+        local party = GetNumPartyMembers()
+        if party and party > 0 then
+            for i = 1, party do
+                local partName = UnitName("party"..i)
+                if partName and string.lower(partName) == lowerName then return true end
+            end
+        end
+    end
+    return false
+end
+UnBot.IsInGroup = IsInGroup
+
 -- Automatically scans current party, raid, and friendly target to register live bots
 function UnBot:ScanGroupBots()
     local found = 0
@@ -139,7 +166,7 @@ function UnBot:ScanGroupBots()
         entry.class = classToken or entry.class or "WARRIOR"
         entry.level = (level and level > 0) and level or entry.level or 0
         entry.online = true
-        entry.grouped = true
+        entry.grouped = IsInGroup(name)
         UnBot.config.roster[name] = entry
         found = found + 1
     end
@@ -552,23 +579,6 @@ function UnBot:QueueRosterStatusSync()
     self:QueueAction(function() UnBot:RequestServerRoster() end)
 end
 
--- Checks whether a character name is currently in the player's party or raid.
-local function IsInGroup(name)
-    if not name then return false end
-    if name == UnitName("player") then return true end
-
-    local raid = GetNumRaidMembers()
-    if raid > 0 then
-        for i = 1, raid do
-            if UnitName("raid"..i) == name then return true end
-        end
-    else
-        for i = 1, GetNumPartyMembers() do
-            if UnitName("party"..i) == name then return true end
-        end
-    end
-    return false
-end
 
 function UnBot:GetSelectedRosterNames()
     local names = {}
