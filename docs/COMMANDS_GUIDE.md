@@ -19,10 +19,16 @@ Warband delivers instructions through four distinct communication channels:
 3. **Party Target Scope (`Scope 3 / PARTY Target`)**: Dispatched through group chat (`/p <verb>`), requiring a hostile target selected by the player.
 4. **Whole Party Scope (`Scope 4 / PARTY Group`)**: Broadcast to all companion bots in your current party or raid (`/p <verb>`).
 
-### 1.2 Protocol Suppression (Chat Cleanliness)
+### 1.2 Strategy Modifiers (`+`, `-`, `~`)
+In the TortoiseBots engine, combat (`co`), non-combat (`nc`), and loot (`ll`) strategy toggles operate using three native prefix symbols:
+- **`+` (Enable / Add)**: Activates the strategy (e.g. `co +focus` enables single-target burn; `co +aoe fear` enables AoE fears).
+- **`-` (Disable / Remove)**: Deactivates the strategy (e.g. `co -focus` allows AoE; `co -aoe fear` suppresses fears).
+- **`~` (Single-Click Toggle)**: **The native TortoiseBots toggle operator** (Engine `case '~': toggleStrategy()`). If the strategy is currently active, it is disabled; if inactive, it is enabled. Used on buttons like **Command 174** (`co ~focus`), **Command 175** (`co ~aoe fear`), **Command 114** (`co ~mark rti`), and **Command 115** (`co ~kite`).
+
+### 1.3 Protocol Suppression (Chat Cleanliness)
 All inbound status reports and machine-readable protocol messages prefixed with `^TBM:` are intercepted and suppressed from the main chat frame by Warband's custom chat filter. This guarantees that your combat log and general chat remain uncluttered while the GUI processes real-time bot status telemetry.
 
-### 1.3 The Persistent Favorites System
+### 1.4 The Persistent Favorites System
 - The main Warband bar includes **10 persistent quick-action favorite slots** along the top row.
 - **Add Favorite**: Open any category dropdown window, locate the desired command, and **Right-Click** its button. A yellow asterisk `*` indicates a favorited command.
 - **Remove Favorite**: Right-Click the button on the favorites bar to confirm removal, or click the **Clear (`X`)** button to wipe all favorites.
@@ -59,10 +65,10 @@ All inbound status reports and machine-readable protocol messages prefixed with 
 | **160** | Toggle AoE | Whole Party (`/party`) | `.bot action aoe` | Toggles all party AoE spells on/off (critical for crowd control preservation in instances). |
 | **161** | Auto CC | Whole Party (`/party`) | `.bot action auto cc` | Toggles smart auto-CC: bots automatically crowd control loose adds threatening healers. |
 | **162** | Pre-pull Sap | Whole Party (`/party`) | `.bot action sap` | Toggles rogue pre-pull Sap behavior on marked targets before combat begins. |
-| **174** | Single burn (focus) | Whole Party (`/party`) | `co ~focus` | Toggles single-target focus burn, forbidding splash damage near crowd control targets. |
-| **175** | Toggle AoE fear | Whole Party (`/party`) | `co ~aoe fear` | Toggles AoE fear spells (Psychic Scream, Howl of Terror, Intimidating Shout) inside dungeons. |
-| **115** | Toggle Kite | Whole Party (`/party`) | `co ~kite` | Toggles autonomous kiting behavior for ranged bots when attacked in melee. |
-| **114** | Auto mark RTI | Whole Party (`/party`) | `co ~mark rti` | Toggles automated RTI raid target marking during combat. |
+| **174** | Single burn (focus) | Whole Party (`/party`) | `co ~focus` | Toggles single-target focus burn via native `co ~focus`: suppresses AoE and splash abilities to protect CC targets. |
+| **175** | Toggle AoE fear | Whole Party (`/party`) | `co ~aoe fear` | Toggles AoE fear spells (Psychic Scream, Howl of Terror, Intimidating Shout) via native `co ~aoe fear` (off by default in instances). |
+| **115** | Toggle Kite | Whole Party (`/party`) | `co ~kite` | Toggles autonomous kiting behavior for ranged bots when attacked in melee via `co ~kite`. |
+| **114** | Auto mark RTI | Whole Party (`/party`) | `co ~mark rti` | Toggles automated RTI raid target marking during combat via `co ~mark rti`. |
 | **116** | Target: Skull | Whole Party (`/party`) | `rti skull` | Sets primary focus fire raid icon to Skull. |
 | **117** | Target: Cross | Whole Party (`/party`) | `rti cross` | Sets primary focus fire raid icon to Cross. |
 | **118** | Target: Square | Whole Party (`/party`) | `rti square` | Sets primary focus fire raid icon to Square. |
@@ -143,12 +149,12 @@ All inbound status reports and machine-readable protocol messages prefixed with 
 #### Section: Autonomous RPG
 | ID | Label | Scope | Native Command / Chat | Tactical Action & Server Behavior |
 |:---|:---|:---|:---|:---|
-| **145** | Toggle RPG mode | Whole Party (`/party`) | `nc ~rpg` | Toggles autonomous RPG behaviors when idle out of combat. |
-| **146** | RPG: Quests | Whole Party (`/party`) | `nc ~rpg quest` | Autonomous RPG: Bots autonomously pick up and hand in quests to nearby NPCs. |
-| **147** | RPG: Vendors & AH | Whole Party (`/party`) | `nc ~rpg vendor` | Autonomous RPG: Bots autonomously vendor trash, buy reagents, and check mailbox. |
-| **148** | RPG: Explore & Fly | Whole Party (`/party`) | `nc ~rpg explore` | Autonomous RPG: Bots discover flight masters, take flights, and explore. |
-| **149** | RPG: Train & Gear | Whole Party (`/party`) | `nc ~rpg maintenance` | Autonomous RPG: Bots visit trainers to learn spells and repair equipment. |
-| **150** | RPG: Crafting | Whole Party (`/party`) | `nc ~rpg craft` | Autonomous RPG: Bots autonomously craft items using trade skills. |
+| **145** | Toggle RPG mode | Whole Party (`/party`) | `nc ~rpg` | Toggles autonomous RPG behaviors when idle out of combat via `nc ~rpg`. |
+| **146** | RPG: Quests | Whole Party (`/party`) | `nc ~rpg quest` | Autonomous RPG: Bots autonomously pick up and hand in quests to nearby NPCs via `nc ~rpg quest`. |
+| **147** | RPG: Vendors & AH | Whole Party (`/party`) | `nc ~rpg vendor` | Autonomous RPG: Bots autonomously vendor trash, buy reagents, and check mailbox via `nc ~rpg vendor`. |
+| **148** | RPG: Explore & Fly | Whole Party (`/party`) | `nc ~rpg explore` | Autonomous RPG: Bots discover flight masters, take flights, and explore via `nc ~rpg explore`. |
+| **149** | RPG: Train & Gear | Whole Party (`/party`) | `nc ~rpg maintenance` | Autonomous RPG: Bots visit trainers to learn spells and repair equipment via `nc ~rpg maintenance`. |
+| **150** | RPG: Crafting | Whole Party (`/party`) | `nc ~rpg craft` | Autonomous RPG: Bots autonomously craft items using trade skills via `nc ~rpg craft`. |
 
 #### Section: Death & Res
 | ID | Label | Scope | Native Command / Chat | Tactical Action & Server Behavior |
@@ -181,14 +187,14 @@ All inbound status reports and machine-readable protocol messages prefixed with 
 #### Section: Loot Filters
 | ID | Label | Scope | Native Command / Chat | Tactical Action & Server Behavior |
 |:---|:---|:---|:---|:---|
-| **128** | Loot: Equip | Whole Party (`/party`) | `ll ~equip` | Toggles whether bots loot equipment upgrades from fallen foes. |
-| **129** | Loot: Quests | Whole Party (`/party`) | `ll ~quest` | Toggles whether bots loot quest objective items. |
-| **130** | Loot: Trade skills | Whole Party (`/party`) | `ll ~skill` | Toggles whether bots loot trade skill crafting materials. |
-| **131** | Loot: Disenchant | Whole Party (`/party`) | `ll ~disenchant` | Toggles whether bots loot uncommon/rare items to disenchant. |
-| **132** | Loot: Consumables | Whole Party (`/party`) | `ll ~use` | Toggles whether bots loot consumables, potions, food, and bandages. |
-| **133** | Loot: Vendor gold | Whole Party (`/party`) | `ll ~vendor` | Toggles whether bots loot vendor trash items to sell for gold. |
-| **134** | Loot: Grey trash | Whole Party (`/party`) | `ll ~trash` | Toggles whether bots loot poor grey junk items. |
-| **135** | Loot: Show rules | Whole Party (`/party`) | `ll ?` | Displays the party's currently active loot filter configuration. |
+| **128** | Loot: Equip | Whole Party (`/party`) | `ll ~equip` | Toggles whether bots loot equipment upgrades from fallen foes via `ll ~equip`. |
+| **129** | Loot: Quests | Whole Party (`/party`) | `ll ~quest` | Toggles whether bots loot quest objective items via `ll ~quest`. |
+| **130** | Loot: Trade skills | Whole Party (`/party`) | `ll ~skill` | Toggles whether bots loot trade skill crafting materials via `ll ~skill`. |
+| **131** | Loot: Disenchant | Whole Party (`/party`) | `ll ~disenchant` | Toggles whether bots loot uncommon/rare items to disenchant via `ll ~disenchant`. |
+| **132** | Loot: Consumables | Whole Party (`/party`) | `ll ~use` | Toggles whether bots loot consumables, potions, food, and bandages via `ll ~use`. |
+| **133** | Loot: Vendor gold | Whole Party (`/party`) | `ll ~vendor` | Toggles whether bots loot vendor trash items to sell for gold via `ll ~vendor`. |
+| **134** | Loot: Grey trash | Whole Party (`/party`) | `ll ~trash` | Toggles whether bots loot poor grey junk items via `ll ~trash`. |
+| **135** | Loot: Show rules | Whole Party (`/party`) | `ll ?` | Displays the party's currently active loot filter configuration via `ll ?`. |
 
 ### Group 5: Info & Status
 *Diagnostic status reporting, active combat strategies review, and quest log inspection.*
@@ -285,7 +291,7 @@ All inbound status reports and machine-readable protocol messages prefixed with 
 | **138** | Mana: Level 3 (Med) | Whole Party (`/party`) | `save mana 3` | Sets mana conservation to Level 3: balanced DPS and mana efficiency. |
 | **139** | Mana: Level 4 (High) | Whole Party (`/party`) | `save mana 4` | Sets mana conservation to Level 4: aggressive spell downranking to preserve mana. |
 | **140** | Mana: Level 5 (Max) | Whole Party (`/party`) | `save mana 5` | Sets mana conservation to Level 5: maximum conservation (vital utility and wanding only). |
-| **141** | Mana: Show level | Whole Party (`/party`) | `save mana ?` | Displays current mana conservation level for party bots. |
+| **141** | Mana: Show level | Whole Party (`/party`) | `save mana ?` | Displays current mana conservation level for party bots via `save mana ?`. |
 
 ### Group 9: Formations
 *Tactical battlefield formations (shield wall, circle, queue, line, arrow, chaos).*
@@ -313,14 +319,16 @@ All inbound status reports and machine-readable protocol messages prefixed with 
 *Account-wide character roster, real-time search, one-click login/invite, group fill/logout.*
 
 The **Player Roster** is an interactive full-screen management interface rather than a static command list. Clicking Group 10 opens the Roster GUI:
-- **Live Character Search**: Type any substring into the search bar (`UnBotRosterSearch`) for real-time name filtering. Includes a clear button (`[X]`) and Escape key support.
+- **Live Character Search & Add**: Type any substring into the search bar (`UnBotRosterSearch`) for real-time filtering. If the typed character is not in the roster, press **Enter** or click **`+ Add "<Name>"`** in Row 1 to instantly register them!
+- **`+ Target` Button**: Click the dedicated `+ Target` button directly beneath the Druid class tab to immediately add your currently targeted friendly character or bot to the roster.
+- **Party & Raid Auto-Discovery**: Opening the roster, clicking Sync, or changing groups automatically scans `party1..4` and `raid1..40`, auto-populating active companions without manual input.
+- **Dual Server Sync**: Clicking `Sync` queries both `.bot roster` (account alts via TBM protocol) and `.bot list` (active world bot instances).
 - **Class Filtering**: 10 class tabs filter characters by class (`ALL`, `Warrior`, `Paladin`, `Hunter`, `Rogue`, `Priest`, `Shaman`, `Mage`, `Warlock`, `Druid`).
 - **Instant Group Invites**: Left-click any online character to instantly invite them via native `.bot invite <name>` (bypasses prompt delays).
 - **Offline Logins**: Left-click any offline character to log them in via `.bot add <name>` and queue their group invite.
 - **Bulk Group Fill**: One-click party (`Fill group` to 5) or raid (`Fill raid` to 40) auto-population from filtered roster candidates.
 - **Status Badges**: Real-time color-coded badges indicate `in group` (cyan), `online` (green), and `offline` (grey).
 - **Clean Dismiss**: Right-click any grouped bot to remove them cleanly via `.bot uninvite <name>`.
-- **Server Sync**: The `Sync` button triggers `.bot roster` to pull the latest state from the database.
 
 ### Group 11: Utilities & World
 *Mailbox collection, quest sharing, hearthstone binding, flight master travel, and world object interaction.*
@@ -328,9 +336,9 @@ The **Player Roster** is an interactive full-screen management interface rather 
 #### Section: Mail & Quests
 | ID | Label | Scope | Native Command / Chat | Tactical Action & Server Behavior |
 |:---|:---|:---|:---|:---|
-| **151** | Check mailbox | Whole Party (`/party`) | `mail ?` | Commands bots to check nearby mailboxes and report attached items. |
+| **151** | Check mailbox | Whole Party (`/party`) | `mail ?` | Commands bots to check nearby mailboxes and report attached items via `mail ?`. |
 | **154** | Accept all quests | Whole Party (`/party`) | `accept *` | Accepts all shared party quests from all group members. |
-| **155** | Quest rewards | Whole Party (`/party`) | `r ?` | Queries available quest reward choices for the selected bot. |
+| **155** | Quest rewards | Whole Party (`/party`) | `r ?` | Queries available quest reward choices for the selected bot via `r ?`. |
 | **179** | Share quests | Whole Party (`/party`) | `share` | Shares all eligible quests from the bot's log with group members. |
 
 #### Section: Travel & Life
@@ -342,7 +350,7 @@ The **Player Roster** is an interactive full-screen management interface rather 
 #### Section: NPC & Spells
 | ID | Label | Scope | Native Command / Chat | Tactical Action & Server Behavior |
 |:---|:---|:---|:---|:---|
-| **152** | Blacklisted spells | Whole Party (`/party`) | `ss ?` | Displays list of blacklisted spells that bots are forbidden to cast. |
+| **152** | Blacklisted spells | Whole Party (`/party`) | `ss ?` | Displays list of blacklisted spells that bots are forbidden to cast via `ss ?`. |
 | **153** | Talk to NPC | Whole Party (`/party`) | `talk` | Commands bots to interact or gossip with your selected NPC. |
 
 #### Section: System & Objects
@@ -359,7 +367,9 @@ The **Player Roster** is an interactive full-screen management interface rather 
 ### 3.1 Player Roster Window (Command ID 74 / Group 10)
 - **Access**: Click Group 10 icon on command bar, or type `/warband roster` or `/wb roster`.
 - **Controls**:
-  - **Search Input**: Live character filtering as you type into `UnBotRosterSearch`.
+  - **Search & Add Input**: Live character filtering as you type into `UnBotRosterSearch`. If the character is not in the roster, press **Enter** or click the green **`+ Add "<Name>"`** prompt in Row 1 to add them immediately.
+  - **`+ Target` Button**: Dedicated button on the left panel (under Druid) that immediately registers your currently selected friendly player or bot into the saved roster.
+  - **Auto-Discovery**: Automatically scans your active party or raid members (`party1..4`, `raid1..40`) on window open, group changes, and target changes.
   - **Class Filter**: 10 buttons along the left margin filter by class.
   - **Left-Click Row**: If bot is online and not grouped, issues `.bot invite <name>`. If bot is offline, logs bot in via `.bot add <name>` and queues invite. If already grouped, targets the bot.
   - **Right-Click Row**: If bot is in group, issues `.bot uninvite <name>` (removes from party). If bot is online outside group, issues `.bot remove <name>` (logs out).
@@ -369,7 +379,7 @@ The **Player Roster** is an interactive full-screen management interface rather 
   - **Fill Raid**: Automatically converts group to raid if needed and fills up to 40 slots.
   - **Remove Selected**: Uninvites all checked bots from your party via `.bot uninvite`.
   - **Log Out Selected**: Logs out all checked bots via `.bot remove`.
-  - **Sync**: Requests live database sync via `.bot roster`.
+  - **Sync**: Automatically scans group and dispatches both `.bot roster` (account alts) and `.bot list` (active world bot instances) to synchronize database and world states.
 
 ### 3.2 Strategy Editor Window (Command ID 54 / Group 8)
 - **Access**: Click `Editor` in Group 8, or type `/warband strategy`.
@@ -525,7 +535,7 @@ The **Player Roster** is an interactive full-screen management interface rather 
 | **71** | Party Management | Disband party | Whole Party (`/party`) | `UninviteUnit ` | Uninvites all bots and dissolves the current party or raid. |
 | **72** | Utilities & World | Bot status | Server (`/say`) | *Interactive UI / Handler* | Prints live health, mana, role, and current state metrics for all party bots. |
 | **73** | Party Management | Command 73 | Server (`/say`) | *Interactive UI / Handler* | Teleports player directly to the selected bot coordinates (GM/debug tool). |
-| **74** | Player Roster | Player roster | Server (`/say`) | `online` | Toggles the interactive Player Roster window with real-time name search and one-click party fill. |
+| **74** | Player Roster | Player roster | Server (`/say`) | `online` | Toggles the interactive Player Roster window with real-time name search, +Target adding, and one-click party fill. |
 | **75** | Strategy & Tactics | Command 75 | Selected Bot (`/whisper`) | *Interactive UI / Handler* | Reserved bot communication channel. |
 | **76** | Movement & Stances | Hold selected | Selected Bot (`/whisper`) | `stay` | Orders the selected bot to hold its current position. |
 | **77** | Player Roster | Refresh bot list | Server (`/say`) | `.bot roster` | Requests live online status and account roster from the server via `.bot roster`. |
@@ -565,8 +575,8 @@ The **Player Roster** is an interactive full-screen management interface rather 
 | **111** | Movement & Stances | Ping stance | Whole Party (`/party`) | `stance show` | Pings current combat stance positions on the ground. |
 | **112** | Combat | Attack RTI | Whole Party (`/party`) | `attack rti` | Commands party bots to attack the target marked with the active RTI combat icon. |
 | **113** | Combat | Pull RTI | Whole Party (`/party`) | `pull rti` | Orders tank to pull the mob marked with the active RTI combat icon. |
-| **114** | Combat | Auto mark RTI | Whole Party (`/party`) | `co ~mark rti` | Toggles automated RTI raid target marking during combat. |
-| **115** | Combat | Toggle Kite | Whole Party (`/party`) | `co ~kite` | Toggles autonomous kiting behavior for ranged bots when attacked in melee. |
+| **114** | Combat | Auto mark RTI | Whole Party (`/party`) | `co ~mark rti` | Toggles automated RTI raid target marking during combat via `co ~mark rti`. |
+| **115** | Combat | Toggle Kite | Whole Party (`/party`) | `co ~kite` | Toggles autonomous kiting behavior for ranged bots when attacked in melee via `co ~kite`. |
 | **116** | Combat | Target: Skull | Whole Party (`/party`) | `rti skull` | Sets primary focus fire raid icon to Skull. |
 | **117** | Combat | Target: Cross | Whole Party (`/party`) | `rti cross` | Sets primary focus fire raid icon to Cross. |
 | **118** | Combat | Target: Square | Whole Party (`/party`) | `rti square` | Sets primary focus fire raid icon to Square. |
@@ -579,34 +589,34 @@ The **Player Roster** is an interactive full-screen management interface rather 
 | **125** | Combat | CC: Skull | Whole Party (`/party`) | `rti cc skull` | Sets crowd control raid target icon to Skull. |
 | **126** | Combat | CC: Moon | Whole Party (`/party`) | `rti cc moon` | Sets crowd control raid target icon to Moon. |
 | **127** | Combat | CC: Clear | Whole Party (`/party`) | `rti cc none` | Clears crowd control raid target icon assignment. |
-| **128** | Inventory & Trade | Loot: Equip | Whole Party (`/party`) | `ll ~equip` | Toggles whether bots loot equipment upgrades from fallen foes. |
-| **129** | Inventory & Trade | Loot: Quests | Whole Party (`/party`) | `ll ~quest` | Toggles whether bots loot quest objective items. |
-| **130** | Inventory & Trade | Loot: Trade skills | Whole Party (`/party`) | `ll ~skill` | Toggles whether bots loot trade skill crafting materials. |
-| **131** | Inventory & Trade | Loot: Disenchant | Whole Party (`/party`) | `ll ~disenchant` | Toggles whether bots loot uncommon/rare items to disenchant. |
-| **132** | Inventory & Trade | Loot: Consumables | Whole Party (`/party`) | `ll ~use` | Toggles whether bots loot consumables, potions, food, and bandages. |
-| **133** | Inventory & Trade | Loot: Vendor gold | Whole Party (`/party`) | `ll ~vendor` | Toggles whether bots loot vendor trash items to sell for gold. |
-| **134** | Inventory & Trade | Loot: Grey trash | Whole Party (`/party`) | `ll ~trash` | Toggles whether bots loot poor grey junk items. |
-| **135** | Inventory & Trade | Loot: Show rules | Whole Party (`/party`) | `ll ?` | Displays the party's currently active loot filter configuration. |
+| **128** | Inventory & Trade | Loot: Equip | Whole Party (`/party`) | `ll ~equip` | Toggles whether bots loot equipment upgrades from fallen foes via `ll ~equip`. |
+| **129** | Inventory & Trade | Loot: Quests | Whole Party (`/party`) | `ll ~quest` | Toggles whether bots loot quest objective items via `ll ~quest`. |
+| **130** | Inventory & Trade | Loot: Trade skills | Whole Party (`/party`) | `ll ~skill` | Toggles whether bots loot trade skill crafting materials via `ll ~skill`. |
+| **131** | Inventory & Trade | Loot: Disenchant | Whole Party (`/party`) | `ll ~disenchant` | Toggles whether bots loot uncommon/rare items to disenchant via `ll ~disenchant`. |
+| **132** | Inventory & Trade | Loot: Consumables | Whole Party (`/party`) | `ll ~use` | Toggles whether bots loot consumables, potions, food, and bandages via `ll ~use`. |
+| **133** | Inventory & Trade | Loot: Vendor gold | Whole Party (`/party`) | `ll ~vendor` | Toggles whether bots loot vendor trash items to sell for gold via `ll ~vendor`. |
+| **134** | Inventory & Trade | Loot: Grey trash | Whole Party (`/party`) | `ll ~trash` | Toggles whether bots loot poor grey junk items via `ll ~trash`. |
+| **135** | Inventory & Trade | Loot: Show rules | Whole Party (`/party`) | `ll ?` | Displays the party's currently active loot filter configuration via `ll ?`. |
 | **136** | Strategy & Tactics | Mana: Burst (Off) | Whole Party (`/party`) | `save mana 1` | Disables mana conservation: bots cast highest rank spells at full burst. |
 | **137** | Strategy & Tactics | Mana: Level 2 (Low) | Whole Party (`/party`) | `save mana 2` | Sets mana conservation to Level 2: light conservation in sustained battles. |
 | **138** | Strategy & Tactics | Mana: Level 3 (Med) | Whole Party (`/party`) | `save mana 3` | Sets mana conservation to Level 3: balanced DPS and mana efficiency. |
 | **139** | Strategy & Tactics | Mana: Level 4 (High) | Whole Party (`/party`) | `save mana 4` | Sets mana conservation to Level 4: aggressive spell downranking to preserve mana. |
 | **140** | Strategy & Tactics | Mana: Level 5 (Max) | Whole Party (`/party`) | `save mana 5` | Sets mana conservation to Level 5: maximum conservation (vital utility and wanding only). |
-| **141** | Strategy & Tactics | Mana: Show level | Whole Party (`/party`) | `save mana ?` | Displays current mana conservation level for party bots. |
+| **141** | Strategy & Tactics | Mana: Show level | Whole Party (`/party`) | `save mana ?` | Displays current mana conservation level for party bots via `save mana ?`. |
 | **142** | Movement & Stances | Set guard spot | Whole Party (`/party`) | `position guard set` | Records current player coordinates as the bots' permanent guard post. |
 | **143** | Movement & Stances | Move to guard | Whole Party (`/party`) | `guard` | Orders bots to travel to their assigned guard post and defend it. |
 | **144** | Movement & Stances | Free movement | Whole Party (`/party`) | `free` | Releases bots from guard posts and allows autonomous nearby wandering. |
-| **145** | Support & Upkeep | Toggle RPG mode | Whole Party (`/party`) | `nc ~rpg` | Toggles autonomous RPG behaviors when idle out of combat. |
-| **146** | Support & Upkeep | RPG: Quests | Whole Party (`/party`) | `nc ~rpg quest` | Autonomous RPG: Bots autonomously pick up and hand in quests to nearby NPCs. |
-| **147** | Support & Upkeep | RPG: Vendors & AH | Whole Party (`/party`) | `nc ~rpg vendor` | Autonomous RPG: Bots autonomously vendor trash, buy reagents, and check mailbox. |
-| **148** | Support & Upkeep | RPG: Explore & Fly | Whole Party (`/party`) | `nc ~rpg explore` | Autonomous RPG: Bots discover flight masters, take flights, and explore. |
-| **149** | Support & Upkeep | RPG: Train & Gear | Whole Party (`/party`) | `nc ~rpg maintenance` | Autonomous RPG: Bots visit trainers to learn spells and repair equipment. |
-| **150** | Support & Upkeep | RPG: Crafting | Whole Party (`/party`) | `nc ~rpg craft` | Autonomous RPG: Bots autonomously craft items using trade skills. |
-| **151** | Utilities & World | Check mailbox | Whole Party (`/party`) | `mail ?` | Commands bots to check nearby mailboxes and report attached items. |
-| **152** | Utilities & World | Blacklisted spells | Whole Party (`/party`) | `ss ?` | Displays list of blacklisted spells that bots are forbidden to cast. |
+| **145** | Support & Upkeep | Toggle RPG mode | Whole Party (`/party`) | `nc ~rpg` | Toggles autonomous RPG behaviors when idle out of combat via `nc ~rpg`. |
+| **146** | Support & Upkeep | RPG: Quests | Whole Party (`/party`) | `nc ~rpg quest` | Autonomous RPG: Bots autonomously pick up and hand in quests to nearby NPCs via `nc ~rpg quest`. |
+| **147** | Support & Upkeep | RPG: Vendors & AH | Whole Party (`/party`) | `nc ~rpg vendor` | Autonomous RPG: Bots autonomously vendor trash, buy reagents, and check mailbox via `nc ~rpg vendor`. |
+| **148** | Support & Upkeep | RPG: Explore & Fly | Whole Party (`/party`) | `nc ~rpg explore` | Autonomous RPG: Bots discover flight masters, take flights, and explore via `nc ~rpg explore`. |
+| **149** | Support & Upkeep | RPG: Train & Gear | Whole Party (`/party`) | `nc ~rpg maintenance` | Autonomous RPG: Bots visit trainers to learn spells and repair equipment via `nc ~rpg maintenance`. |
+| **150** | Support & Upkeep | RPG: Crafting | Whole Party (`/party`) | `nc ~rpg craft` | Autonomous RPG: Bots autonomously craft items using trade skills via `nc ~rpg craft`. |
+| **151** | Utilities & World | Check mailbox | Whole Party (`/party`) | `mail ?` | Commands bots to check nearby mailboxes and report attached items via `mail ?`. |
+| **152** | Utilities & World | Blacklisted spells | Whole Party (`/party`) | `ss ?` | Displays list of blacklisted spells that bots are forbidden to cast via `ss ?`. |
 | **153** | Utilities & World | Talk to NPC | Whole Party (`/party`) | `talk` | Commands bots to interact or gossip with your selected NPC. |
 | **154** | Utilities & World | Accept all quests | Whole Party (`/party`) | `accept *` | Accepts all shared party quests from all group members. |
-| **155** | Utilities & World | Quest rewards | Whole Party (`/party`) | `r ?` | Queries available quest reward choices for the selected bot. |
+| **155** | Utilities & World | Quest rewards | Whole Party (`/party`) | `r ?` | Queries available quest reward choices for the selected bot via `r ?`. |
 | **156** | Combat | Interrupt cast | Party Target (`/party`) | `.bot action interrupt` | Orders party bots to prioritize and immediately cast interrupts (Kick, Pummel, Counterspell, Earth Shock). |
 | **157** | Combat | Tactical pullback | Party Target (`/party`) | `.bot action pullback 5 ranged` | Orders the tank to pull from range and drag the mob back to player anchor coordinates while party holds. |
 | **158** | Combat | End pull | Whole Party (`/party`) | `end pull` | Immediately aborts an active tank pull without waiting for timeout. |
@@ -625,8 +635,8 @@ The **Player Roster** is an interactive full-screen management interface rather 
 | **171** | Strategy & Tactics | Douse MC runes | Whole Party (`/party`) | `.bot action raid douse` | Raid tactic: Bots douse nearby Molten Core runes using Quintessence. |
 | **172** | Strategy & Tactics | Turtle raid tactics | Whole Party (`/party`) | `.bot action raid custom on` | Enables custom Turtle WoW raid encounter tactics (Emerald Sanctum, Karazhan Crypt, etc.). |
 | **173** | Movement & Stances | Wander mode | Whole Party (`/party`) | `wander` | Toggles free autonomous roaming and exploration when out of combat. |
-| **174** | Combat | Single burn (focus) | Whole Party (`/party`) | `co ~focus` | Toggles single-target focus burn, forbidding splash damage near crowd control targets. |
-| **175** | Combat | Toggle AoE fear | Whole Party (`/party`) | `co ~aoe fear` | Toggles AoE fear spells (Psychic Scream, Howl of Terror, Intimidating Shout) inside dungeons. |
+| **174** | Combat | Single burn (focus) | Whole Party (`/party`) | `co ~focus` | Toggles single-target focus burn via native `co ~focus`: suppresses AoE and splash abilities to protect CC targets. |
+| **175** | Combat | Toggle AoE fear | Whole Party (`/party`) | `co ~aoe fear` | Toggles AoE fear spells (Psychic Scream, Howl of Terror, Intimidating Shout) via native `co ~aoe fear` (off by default in instances). |
 | **176** | Strategy & Tactics | Threat back-off | Whole Party (`/party`) | `.bot behavior party threat` | Directs non-tank bots to ease off attacks when approaching the tank's threat ceiling. |
 | **177** | Strategy & Tactics | Offensive boost | Whole Party (`/party`) | `.bot behavior party boost` | Allows bots to activate major offensive cooldowns, racials, and trinkets during boss fights. |
 | **178** | Support & Upkeep | Potions engine | Whole Party (`/party`) | `.bot behavior party potions` | Enables automated combat potion and healthstone consumption when health drops critical. |
