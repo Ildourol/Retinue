@@ -261,16 +261,12 @@ function UnBot:ApplyButtonIcon(buttonOrTexture, commandId)
 
     local rtiIndex = self:GetRaidTargetIndex(commandId)
     if rtiIndex and rtiIndex >= 1 and rtiIndex <= 8 then
-        if SetRaidTargetIconTexture then
-            SetRaidTargetIconTexture(tex, rtiIndex)
-        else
-            tex:SetTexture("Interface\\TargetingFrame\\UI-RaidTargetingIcons")
-            local left = math.mod(rtiIndex - 1, 4) * 0.25
-            local right = left + 0.25
-            local top = math.floor((rtiIndex - 1) / 4) * 0.25
-            local bottom = top + 0.25
-            tex:SetTexCoord(left, right, top, bottom)
-        end
+        tex:SetTexture("Interface\\TargetingFrame\\UI-RaidTargetingIcons")
+        local left = math.mod(rtiIndex - 1, 4) * 0.25
+        local right = left + 0.25
+        local top = math.floor((rtiIndex - 1) / 4) * 0.25
+        local bottom = top + 0.25
+        tex:SetTexCoord(left, right, top, bottom)
     else
         tex:SetTexture(self:GetIconPath(commandId))
         tex:SetTexCoord(0, 1, 0, 1)
