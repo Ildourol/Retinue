@@ -8,20 +8,27 @@
 
 -- Calls func(unitName) for every group member except the player.
 local function ForEachGroupMember(func)
+    local checkValid = IsValidCharacterName or (UnBot and UnBot.IsValidCharacterName)
+    local me = UnitName("player")
+    local myLower = (me and checkValid and checkValid(me)) and string.lower(me) or ""
     if UnitInRaid("player") then
         local n = GetNumRaidMembers()
         for i = 1, n do
             local name = UnitName("raid"..i)
-            if name and name ~= UnitName("player") then
-                func(name)
+            if name and (not checkValid or checkValid(name)) then
+                if myLower == "" or string.lower(name) ~= myLower then
+                    func(name)
+                end
             end
         end
     else
         local n = GetNumPartyMembers()
         for i = 1, n do
             local name = UnitName("party"..i)
-            if name then
-                func(name)
+            if name and (not checkValid or checkValid(name)) then
+                if myLower == "" or string.lower(name) ~= myLower then
+                    func(name)
+                end
             end
         end
     end
@@ -51,7 +58,8 @@ end)
 -- ".bot <sub> <target>" for whoever you have selected.
 local function ServerCommandOnTarget(id)
     local name = UnitName("target")
-    if not name or name == "" then
+    local checkValid = IsValidCharacterName or (UnBot and UnBot.IsValidCharacterName)
+    if not name or name == "" or (checkValid and not checkValid(name)) then
         UnBot:Message(UnBotL.MSG.NO_TARGET)
         return
     end
@@ -99,9 +107,10 @@ end)
 -- [83] Cleanly log in offline roster bots
 UnBot:RegisterHandler(83, function()
     local count = 0
+    local checkValid = IsValidCharacterName or (UnBot and UnBot.IsValidCharacterName)
     if UnBot.config and UnBot.config.roster then
         for name, data in pairs(UnBot.config.roster) do
-            if not data.self and not data.online then
+            if (not checkValid or checkValid(name)) and not data.self and not data.online then
                 UnBot:QueueChat(".bot add "..name, "SAY")
                 data.online = true
                 count = count + 1

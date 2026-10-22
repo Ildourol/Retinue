@@ -61,6 +61,38 @@ local CLASS_ID_TO_TOKEN = {
     [11] = "DRUID",
 }
 
+-- Validates whether a character name is legitimate, filtering out "Unknown", "-", etc.
+local function IsValidCharacterName(name)
+    if not name or type(name) ~= "string" then return false end
+    name = string.gsub(name, "^%s+", "")
+    name = string.gsub(name, "%s+$", "")
+    if name == "" or name == "-" or name == "nil" then return false end
+    local lower = string.lower(name)
+    if lower == "unknown" or lower == "unknown entity" or lower == "unknown being" then return false end
+    if UNKNOWNOBJECT and string.lower(UNKNOWNOBJECT) == lower then return false end
+    if UNKNOWNBEING and string.lower(UNKNOWNBEING) == lower then return false end
+    if string.len(name) < 2 then return false end
+    if string.find(name, "[^%a%d_]") then return false end
+    return true
+end
+UnBot.IsValidCharacterName = IsValidCharacterName
+setglobal("IsValidCharacterName", IsValidCharacterName)
+IsValidCharacterName = IsValidCharacterName
+
+function UnBot:SanitizeRoster()
+    if not self.config or not self.config.roster then return end
+    local me = UnitName("player")
+    local myNameValid = IsValidCharacterName(me)
+    local myLower = myNameValid and string.lower(me) or ""
+    for name, data in pairs(self.config.roster) do
+        if not IsValidCharacterName(name) then
+            self.config.roster[name] = nil
+        elseif data and data.self and myNameValid and string.lower(name) ~= myLower then
+            data.self = nil
+        end
+    end
+end
+
 -- Checks whether a character name is currently in the player's party or raid.
 -- If no name is passed, returns whether the player is currently in any group.
 local function IsInGroup(selfOrName, maybeName)
@@ -149,6 +181,7 @@ function UnBot:InitRoster()
     math.randomseed(time())
 
     if self.config.roster == nil then self.config.roster = {} end
+    self:SanitizeRoster()
     self.rosterFilter = "ALL"
     self.rosterSearchQuery = nil
     self.rosterOffset = 0
@@ -220,10 +253,13 @@ end
 -- Automatically scans current party, raid, and friendly target to register live bots
 function UnBot:ScanGroupBots()
     local found = 0
+    local me = UnitName("player")
+    local myLower = (me and IsValidCharacterName(me)) and string.lower(me) or ""
     local function CheckUnit(unit)
         if not UnitExists(unit) then return end
         local name = UnitName(unit)
-        if not name or name == "" or name == UnitName("player") then return end
+        if not IsValidCharacterName(name) then return end
+        if myLower ~= "" and string.lower(name) == myLower then return end
         local _, classToken = UnitClass(unit)
         local level = UnitLevel(unit)
         local entry = UnBot.config.roster[name] or {}
@@ -252,11 +288,12 @@ end
 
 -- Adds a character to the roster with name normalization
 function UnBot:AddRosterCharacter(name, classToken, level)
-    if not name or name == "" then return end
+    if not IsValidCharacterName(name) then return end
     name = string.gsub(name, "^%s+", "")
     name = string.gsub(name, "%s+$", "")
-    if name == "" then return end
+    if not IsValidCharacterName(name) then return end
     name = string.upper(string.sub(name, 1, 1)) .. string.lower(string.sub(name, 2))
+    if not IsValidCharacterName(name) then return end
 
     local entry = self.config.roster[name] or {}
     entry.class = classToken or entry.class or "WARRIOR"
@@ -281,8 +318,12 @@ function UnBot:AddTargetToRoster()
         return
     end
     local name = UnitName("target")
-    if not name or name == "" then return end
-    if name == UnitName("player") then
+    if not IsValidCharacterName(name) then
+        self:Message("Target name is not available yet (resolving)")
+        return
+    end
+    local me = UnitName("player")
+    if me and string.lower(name) == string.lower(me) then
         self:Message("That is you - you are already in the roster")
         return
     end
@@ -327,7 +368,7 @@ function UnBot:ParseServerRoster(msg)
         -- Format: TBM:ROSTER|<guidCounter>|<name>|<classId>|<state>|<grouped>|<location>
         local _, _, counter, name, classId, state, grouped, location =
             string.find(msg, "^TBM:ROSTER|(%d+)|([^|]+)|(%d+)|([^|]+)|(%d+)|?(.*)")
-        if name and classId then
+        if name and classId and IsValidCharacterName(name) then
             local record = self.config.roster[name] or {}
             local cid = tonumber(classId) or 1
             record.class    = CLASS_ID_TO_TOKEN[cid] or record.class or "WARRIOR"
@@ -357,7 +398,7 @@ function UnBot:ParseServerRoster(msg)
             for altName in iter(alts, "[^,]+") do
                 altName = string.gsub(altName, "^%s+", "")
                 altName = string.gsub(altName, "%s+$", "")
-                if self.config.roster[altName] then
+                if IsValidCharacterName(altName) and self.config.roster[altName] then
                     self.config.roster[altName].altbot = true
                 end
             end
@@ -368,7 +409,7 @@ function UnBot:ParseServerRoster(msg)
     -- Protocol 2: TortoiseBots .bot list output
     -- Format: "<name>: in world, random <0|1>, AI <0|1>"
     local _, _, botName, botWorldState = string.find(msg, "^([%a%d_]+):%s*([%a%s]+),%s*random")
-    if botName then
+    if botName and IsValidCharacterName(botName) then
         local inWorld = (botWorldState == "in world")
         local record = self.config.roster[botName] or {}
         record.online = (inWorld or botWorldState == "starting")
@@ -386,7 +427,7 @@ function UnBot:ParseServerRoster(msg)
     -- Protocol 3: TortoiseBots .bot add feedback
     -- Format: "Bot <name> queued for login; it will follow <player>..."
     local _, _, addedBot = string.find(msg, "^Bot%s+([%a%d_]+)%s+queued for login")
-    if addedBot then
+    if addedBot and IsValidCharacterName(addedBot) then
         local record = self.config.roster[addedBot] or {}
         record.online = true
         record.class  = record.class or "WARRIOR"
@@ -405,7 +446,7 @@ function UnBot:ParseServerRoster(msg)
         for entry in iter(list, "[^,]+") do
             -- each entry looks like " -Andorian Druid"
             local _, _, status, name, class = string.find(entry, "([%+%-]?)%s*([%a%d_]+)%s+([%a%d_]+)")
-            if name and class then
+            if name and class and IsValidCharacterName(name) then
                 local record = self.config.roster[name] or {}
                 record.class  = string.upper(class)
                 record.online = (status == "+")
@@ -426,10 +467,12 @@ end
 -- Called on login so the roster grows by itself.
 function UnBot:RecordCurrentCharacter()
     local name = UnitName("player")
-    if not name then return end
+    if not IsValidCharacterName(name) then return end
 
     local locClass, token = UnitClass("player")
     if not token then token = string.upper(locClass or "") end
+
+    self:SanitizeRoster()
 
     local entry = self.config.roster[name] or {}
     entry.class = token
@@ -447,16 +490,21 @@ end
 
 -- Names matching the active class filter and search query, alphabetically.
 function UnBot:GetFilteredRoster()
+    self:SanitizeRoster()
     local out = {}
     local query = self.rosterSearchQuery
     for name, data in pairs(self.config.roster) do
-        local matchesClass = (self.rosterFilter == "ALL" or data.class == self.rosterFilter)
-        local matchesSearch = true
-        if query and query ~= "" then
-            matchesSearch = string.find(string.lower(name), query, 1, true) ~= nil
-        end
-        if matchesClass and matchesSearch then
-            table.insert(out, name)
+        if IsValidCharacterName(name) then
+            local matchesClass = (self.rosterFilter == "ALL" or data.class == self.rosterFilter)
+            local matchesSearch = true
+            if query and query ~= "" then
+                matchesSearch = string.find(string.lower(name), query, 1, true) ~= nil
+            end
+            if matchesClass and matchesSearch then
+                table.insert(out, name)
+            end
+        else
+            self.config.roster[name] = nil
         end
     end
     table.sort(out)
@@ -576,7 +624,7 @@ function UnBot:CreateRosterSearchBar(parent)
         text = string.gsub(text, "%s+$", "")
         if text ~= "" then
             local normName = string.upper(string.sub(text, 1, 1)) .. string.lower(string.sub(text, 2))
-            if not UnBot.config.roster[normName] then
+            if IsValidCharacterName(normName) and not UnBot.config.roster[normName] then
                 UnBot:AddRosterCharacter(normName)
                 this:SetText("")
             end
@@ -653,9 +701,13 @@ end
 
 function UnBot:GetSelectedRosterNames()
     local names = {}
+    local me = UnitName("player")
+    local myLower = (me and IsValidCharacterName(me)) and string.lower(me) or ""
     for name, selected in pairs(self.rosterSelection or {}) do
-        if selected and self.config.roster[name] and name ~= UnitName("player") then
-            table.insert(names, name)
+        if selected and IsValidCharacterName(name) and self.config.roster[name] then
+            if myLower == "" or string.lower(name) ~= myLower then
+                table.insert(names, name)
+            end
         end
     end
     table.sort(names)
@@ -819,6 +871,7 @@ function UnBot:FillWith(maxSize)
     local free = maxSize - GroupSize()
     local names = self:GetFilteredRoster()
     local me = UnitName("player")
+    local myLower = (me and IsValidCharacterName(me)) and string.lower(me) or ""
 
     local reconnect = {}
     local onlineNotInGroup = {}
@@ -826,7 +879,7 @@ function UnBot:FillWith(maxSize)
 
     for i = 1, table.getn(names) do
         local name = names[i]
-        if name ~= me then
+        if myLower == "" or string.lower(name) ~= myLower then
             local data = self.config.roster[name]
             local grouped = IsInGroup(name)
             local isOnline = data and data.online
@@ -903,10 +956,11 @@ function UnBot:BulkBotCommand(subcommand)
     end
 
     local me = UnitName("player")
+    local myLower = (me and IsValidCharacterName(me)) and string.lower(me) or ""
     local queued = 0
     for i = 1, count do
         local name = names[i]
-        if name ~= me then
+        if myLower == "" or string.lower(name) ~= myLower then
             self:QueueChat(".bot "..cmd.." "..name, "SAY")
             queued = queued + 1
             if cmd == "remove" and self.config.roster[name] then
@@ -1003,7 +1057,9 @@ function UnBot:CreateRosterRows(parent)
         check:SetPoint("LEFT", row, "LEFT", 0, 0)
         check:SetScript("OnClick", function()
             local owner = this:GetParent()
-            if not owner.charName or owner.charName == UnitName("player") then return end
+            if not owner.charName or not IsValidCharacterName(owner.charName) then return end
+            local me = UnitName("player")
+            if me and string.lower(owner.charName) == string.lower(me) then return end
             UnBot.rosterSelection[owner.charName] = this:GetChecked() and true or nil
         end)
         row.selectCheck = check
@@ -1021,16 +1077,19 @@ function UnBot:CreateRosterRows(parent)
 
         row:SetScript("OnClick", function()
             if this.isAddButton and this.charName then
-                UnBot:AddRosterCharacter(this.charName)
-                if UnBot.rosterSearchBox then
-                    UnBot.rosterSearchBox:SetText("")
+                if IsValidCharacterName(this.charName) then
+                    UnBot:AddRosterCharacter(this.charName)
+                    if UnBot.rosterSearchBox then
+                        UnBot.rosterSearchBox:SetText("")
+                    end
+                    UnBot.rosterSearchQuery = nil
+                    UnBot:RefreshRoster()
                 end
-                UnBot.rosterSearchQuery = nil
-                UnBot:RefreshRoster()
                 return
             end
-            if not this.charName then return end
-            if this.charName == UnitName("player") then
+            if not this.charName or not IsValidCharacterName(this.charName) then return end
+            local me = UnitName("player")
+            if me and string.lower(this.charName) == string.lower(me) then
                 UnBot:Message("That one is you - you are already in the world")
                 return
             end
@@ -1077,16 +1136,17 @@ function UnBot:CreateRosterRows(parent)
 
         row:SetScript("OnEnter", function()
             if this.isAddButton and this.charName then
+                if not IsValidCharacterName(this.charName) then return end
                 GameTooltip:SetOwner(this, "ANCHOR_RIGHT")
                 GameTooltip:AddLine("+ Add "..this.charName, 0.3, 1, 0.3)
                 GameTooltip:AddLine("Click or press Enter to add '"..this.charName.."' to your roster.", 0.8, 0.8, 0.8, 1)
                 GameTooltip:Show()
                 return
             end
-            if not this.charName then return end
+            if not this.charName or not IsValidCharacterName(this.charName) then return end
             GameTooltip:SetOwner(this, "ANCHOR_RIGHT")
             GameTooltip:AddLine(this.charName, 1, 0.82, 0)
-            local data = UnBot.config.roster[this.charName]
+            local data = UnBot.config.roster[this.charName] or {}
             if data and data.class then
                 local c = CLASS_COLOR[data.class] or {1, 1, 1}
                 GameTooltip:AddLine(data.class, c[1], c[2], c[3])
@@ -1133,21 +1193,25 @@ function UnBot:RefreshRoster()
 
     local names = self:GetFilteredRoster()
     local searchQ = self.rosterSearchQuery
-    local showAddRow = (searchQ and searchQ ~= "" and table.getn(names) == 0)
+    local showAddRow = (searchQ and searchQ ~= "" and IsValidCharacterName(searchQ) and table.getn(names) == 0)
+
+    local me = UnitName("player")
+    local myLower = (me and IsValidCharacterName(me)) and string.lower(me) or ""
 
     for i = 1, ROW_COUNT do
         local row = self.rosterRows[i]
         local name = names[i + self.rosterOffset]
 
-        if name then
+        if name and IsValidCharacterName(name) then
             row.isAddButton = nil
-            local data = self.config.roster[name]
+            local data = self.config.roster[name] or {}
             local c = CLASS_COLOR[data.class] or {1, 1, 1}
             local grouped = IsInGroup(name)
             row.charName = name
             row.nameText:SetTextColor(c[1], c[2], c[3])
 
-            if name == UnitName("player") then
+            local isMe = (myLower ~= "" and string.lower(name) == myLower)
+            if isMe then
                 row.selectCheck:SetChecked(nil)
                 row.selectCheck:Hide()
                 row.nameText:SetText(name.."  (you)")

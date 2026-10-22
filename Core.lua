@@ -18,6 +18,24 @@ function UnBot:Message(msg)
     DEFAULT_CHAT_FRAME:AddMessage("|cff00cccc"..msg.."|r")
 end
 
+-- Validates whether a character name is legitimate, filtering out "Unknown", "-", etc.
+local function IsValidCharacterName(name)
+    if not name or type(name) ~= "string" then return false end
+    name = string.gsub(name, "^%s+", "")
+    name = string.gsub(name, "%s+$", "")
+    if name == "" or name == "-" or name == "nil" then return false end
+    local lower = string.lower(name)
+    if lower == "unknown" or lower == "unknown entity" or lower == "unknown being" then return false end
+    if UNKNOWNOBJECT and string.lower(UNKNOWNOBJECT) == lower then return false end
+    if UNKNOWNBEING and string.lower(UNKNOWNBEING) == lower then return false end
+    if string.len(name) < 2 then return false end
+    if string.find(name, "[^%a%d_]") then return false end
+    return true
+end
+UnBot.IsValidCharacterName = IsValidCharacterName
+setglobal("IsValidCharacterName", IsValidCharacterName)
+IsValidCharacterName = IsValidCharacterName
+
 function UnBot:Init()
     if self.inited then return end
     self.inited = true
@@ -230,7 +248,7 @@ end
 
 function UnBot:GetGroupedTarget()
     local name = UnitName("target")
-    if not name or name == "" then
+    if not name or name == "" or not IsValidCharacterName(name) then
         self:Message(UnBotL.MSG.NO_TARGET)
         return nil
     end
@@ -349,7 +367,7 @@ function UnBot:TestInvite(name)
     if name == nil or name == "" then
         name = UnitName("target")
     end
-    if not name or name == "" then
+    if not name or name == "" or not IsValidCharacterName(name) then
         self:Message("Usage: /unbot invite <name>, or target someone")
         return
     end
@@ -416,7 +434,7 @@ end
 
 function UnBot:AskBotHelp(topic)
     local target = UnitName("target")
-    if not target or target == "" then
+    if not target or target == "" or not IsValidCharacterName(target) then
         self:Message(UnBotL.MSG.NO_TARGET)
         return
     end
@@ -608,6 +626,22 @@ end)
 local loader = CreateFrame("Frame", "UnBotLoader")
 loader:RegisterEvent("VARIABLES_LOADED")
 loader:RegisterEvent("PLAYER_LOGIN")
+loader:RegisterEvent("PLAYER_ENTERING_WORLD")
 loader:SetScript("OnEvent", function()
-    UnBot:Init()
+    if event == "VARIABLES_LOADED" or event == "PLAYER_LOGIN" then
+        UnBot:Init()
+    elseif event == "PLAYER_ENTERING_WORLD" then
+        if not UnBot.inited then
+            UnBot:Init()
+        end
+        if UnBot.RecordCurrentCharacter then
+            UnBot:RecordCurrentCharacter()
+        end
+        if UnBot.ScanGroupBots then
+            UnBot:ScanGroupBots()
+        end
+        if UnBot.RefreshRoster then
+            UnBot:RefreshRoster()
+        end
+    end
 end)
