@@ -82,6 +82,8 @@ function UnBot:RegisterSlashCommands()
 
         if msg == "roster" or msg == "bots" then
             UnBot:ToggleRoster()
+        elseif msg == "sync" then
+            UnBot:RequestServerRoster(true)
         elseif msg == "strategy" or msg == "strat" then
             UnBot:ShowStrategyWindow()
         elseif msg == "spells" then
@@ -104,7 +106,7 @@ function UnBot:RegisterSlashCommands()
             UnBot:Message("/warband - show or hide the command bar")
             UnBot:Message("Everything else has a button on the bar; these are")
             UnBot:Message("just shortcuts for the same windows:")
-            UnBot:Message("  roster, strategy, spells, bags, fill, fillraid")
+            UnBot:Message("  roster, sync, strategy, spells, bags, fill, fillraid")
             UnBot:Message("Diagnostics: capture, debug, checkapi, ask all")
         else
             UnBot:ToggleUI()

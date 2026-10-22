@@ -37,6 +37,110 @@ ChatFrame_OnEvent = function(event)
 end
 
 --=========================================================================--
+--  Helpers
+--=========================================================================--
+
+-- Strip colour codes and texture escapes so patterns see plain text.
+local function CleanChat(msg)
+    msg = string.gsub(msg, "|c%x%x%x%x%x%x%x%x", "")
+    msg = string.gsub(msg, "|r", "")
+    msg = string.gsub(msg, "|H.-|h", "")
+    msg = string.gsub(msg, "|h", "")
+    return msg
+end
+
+local CLASS_ID_TO_TOKEN = {
+    [1]  = "WARRIOR",
+    [2]  = "PALADIN",
+    [3]  = "HUNTER",
+    [4]  = "ROGUE",
+    [5]  = "PRIEST",
+    [7]  = "SHAMAN",
+    [8]  = "MAGE",
+    [9]  = "WARLOCK",
+    [11] = "DRUID",
+}
+
+-- Checks whether a character name is currently in the player's party or raid.
+-- If no name is passed, returns whether the player is currently in any group.
+local function IsInGroup(selfOrName, maybeName)
+    local name = maybeName or selfOrName
+    if name == UnBot and maybeName == nil then
+        name = nil
+    end
+
+    -- If no target name is given, return whether player is in any group (party or raid)
+    if not name or name == "" then
+        local raid = GetNumRaidMembers()
+        if raid and raid > 0 then return true end
+        local party = GetNumPartyMembers()
+        if party and party > 0 then return true end
+        return false
+    end
+
+    if type(name) ~= "string" then return false end
+    local lowerName = string.lower(name)
+    local pName = UnitName("player")
+    if pName and string.lower(pName) == lowerName then return true end
+
+    local raid = GetNumRaidMembers()
+    if raid and raid > 0 then
+        for i = 1, raid do
+            local rName = UnitName("raid"..i)
+            if rName and string.lower(rName) == lowerName then return true end
+        end
+    else
+        local party = GetNumPartyMembers()
+        if party and party > 0 then
+            for i = 1, party do
+                local partName = UnitName("party"..i)
+                if partName and string.lower(partName) == lowerName then return true end
+            end
+        end
+    end
+    return false
+end
+UnBot.IsInGroup = IsInGroup
+setglobal("IsInGroup", IsInGroup)
+IsInGroup = IsInGroup
+
+-- Helper to perform native client party invitation (CMSG_GROUP_INVITE)
+local function NativeInvite(selfOrName, maybeName)
+    local name = maybeName or selfOrName
+    if name == UnBot and maybeName == nil then return false end
+    if not name or name == "" or type(name) ~= "string" then return false end
+    if type(InviteByName) == "function" then
+        InviteByName(name)
+        return true
+    elseif type(InviteUnit) == "function" then
+        InviteUnit(name)
+        return true
+    end
+    return false
+end
+UnBot.NativeInvite = NativeInvite
+setglobal("NativeInvite", NativeInvite)
+NativeInvite = NativeInvite
+
+-- Helper to perform native client party uninvitation (CMSG_GROUP_UNINVITE)
+local function NativeUninvite(selfOrName, maybeName)
+    local name = maybeName or selfOrName
+    if name == UnBot and maybeName == nil then return false end
+    if not name or name == "" or type(name) ~= "string" then return false end
+    if type(UninviteByName) == "function" then
+        UninviteByName(name)
+        return true
+    elseif type(UninviteUnit) == "function" then
+        UninviteUnit(name)
+        return true
+    end
+    return false
+end
+UnBot.NativeUninvite = NativeUninvite
+setglobal("NativeUninvite", NativeUninvite)
+NativeUninvite = NativeUninvite
+
+--=========================================================================--
 --  Data
 --=========================================================================--
 
@@ -112,81 +216,6 @@ function UnBot:InitRosterEvents()
     end)
 end
 
--- Strip colour codes and texture escapes so patterns see plain text.
-local function CleanChat(msg)
-    msg = string.gsub(msg, "|c%x%x%x%x%x%x%x%x", "")
-    msg = string.gsub(msg, "|r", "")
-    msg = string.gsub(msg, "|H.-|h", "")
-    msg = string.gsub(msg, "|h", "")
-    return msg
-end
-
-local CLASS_ID_TO_TOKEN = {
-    [1]  = "WARRIOR",
-    [2]  = "PALADIN",
-    [3]  = "HUNTER",
-    [4]  = "ROGUE",
-    [5]  = "PRIEST",
-    [7]  = "SHAMAN",
-    [8]  = "MAGE",
-    [9]  = "WARLOCK",
-    [11] = "DRUID",
-}
-
--- Checks whether a character name is currently in the player's party or raid.
-local function IsInGroup(selfOrName, maybeName)
-    local name = maybeName or selfOrName
-    if type(name) ~= "string" or name == "" then return false end
-    local lowerName = string.lower(name)
-    local pName = UnitName("player")
-    if pName and string.lower(pName) == lowerName then return true end
-
-    local raid = GetNumRaidMembers()
-    if raid and raid > 0 then
-        for i = 1, raid do
-            local rName = UnitName("raid"..i)
-            if rName and string.lower(rName) == lowerName then return true end
-        end
-    else
-        local party = GetNumPartyMembers()
-        if party and party > 0 then
-            for i = 1, party do
-                local partName = UnitName("party"..i)
-                if partName and string.lower(partName) == lowerName then return true end
-            end
-        end
-    end
-    return false
-end
-UnBot.IsInGroup = IsInGroup
-
--- Helper to perform native client party invitation (CMSG_GROUP_INVITE)
-local function NativeInvite(name)
-    if not name or name == "" then return false end
-    if type(InviteByName) == "function" then
-        InviteByName(name)
-        return true
-    elseif type(InviteUnit) == "function" then
-        InviteUnit(name)
-        return true
-    end
-    return false
-end
-UnBot.NativeInvite = NativeInvite
-
--- Helper to perform native client party uninvitation (CMSG_GROUP_UNINVITE)
-local function NativeUninvite(name)
-    if not name or name == "" then return false end
-    if type(UninviteByName) == "function" then
-        UninviteByName(name)
-        return true
-    elseif type(UninviteUnit) == "function" then
-        UninviteUnit(name)
-        return true
-    end
-    return false
-end
-UnBot.NativeUninvite = NativeUninvite
 
 -- Automatically scans current party, raid, and friendly target to register live bots
 function UnBot:ScanGroupBots()
@@ -268,7 +297,7 @@ function UnBot:AddTargetToRoster()
     self:RefreshRoster()
 end
 
-function UnBot:RequestServerRoster()
+function UnBot:RequestServerRoster(feedback)
     -- 1. Scan local party/raid and friendly target immediately
     self:ScanGroupBots()
 
@@ -278,7 +307,9 @@ function UnBot:RequestServerRoster()
     -- 3. Also pull online bot instances in world via .bot list
     SendChatMessage(".bot list", "SAY")
 
-    self:Message("Syncing roster with server and group...")
+    if feedback then
+        self:Message("Syncing roster with server and group...")
+    end
     self:RefreshRoster()
 end
 
@@ -315,8 +346,6 @@ function UnBot:ParseServerRoster(msg)
     end
 
     if string.find(msg, "^TBM:ROSTER_END") then
-        local count = self.tbmRosterCount or 0
-        self:Message("Roster synchronized with server: "..count.." character(s)")
         self:RefreshRoster()
         return
     end
@@ -388,7 +417,6 @@ function UnBot:ParseServerRoster(msg)
         end
 
         if found > 0 then
-            self:Message("Roster updated from server (legacy list): "..found.." character(s)")
             self:RefreshRoster()
         end
         return
@@ -447,7 +475,6 @@ function UnBot:ToggleRoster()
         UnBotRosterFrame:Show()
         self:ScanGroupBots()
         self:RefreshRoster()
-        self:RequestServerRoster()   -- pull authoritative list and world instances
     end
 end
 
@@ -614,12 +641,13 @@ function UnBot:CreateBulkButtons(parent)
 end
 
 local LOGIN_GRACE       = 2.5
-local STATUS_SYNC_DELAY = 1.0
 
--- Ask for authoritative status shortly after queued add/remove commands.
+-- Automatic server roster sync has been disabled to prevent server and chat spam.
+-- Roster synchronization with the server (.bot roster / .bot list) is now only
+-- performed manually (via the "Sync" button in the roster window or '/wb sync').
 function UnBot:QueueRosterStatusSync()
-    self:QueueWait(STATUS_SYNC_DELAY)
-    self:QueueAction(function() UnBot:RequestServerRoster() end)
+    self:ScanGroupBots()
+    self:RefreshRoster()
 end
 
 
@@ -653,11 +681,15 @@ function UnBot:RemoveSelectedFromGroup()
         if IsInGroup(name) then
             NativeUninvite(name)
             self:QueueChat(".bot uninvite "..name, "SAY")
+            if self.config.roster[name] then
+                self.config.roster[name].grouped = false
+            end
             queued = queued + 1
         end
     end
     self:ClearRosterSelection()
-    self:QueueRosterStatusSync()
+    self:ScanGroupBots()
+    self:RefreshRoster()
 
     if queued == 0 then
         self:Message("None of the selected bots are in your current group")
@@ -678,9 +710,13 @@ function UnBot:LogoutSelectedBots()
             NativeUninvite(name)
         end
         self:QueueChat(".bot remove "..name, "SAY")
+        if self.config.roster[name] then
+            self.config.roster[name].online = false
+            self.config.roster[name].grouped = false
+        end
     end
-    self:QueueRosterStatusSync()
     self:ClearRosterSelection()
+    self:RefreshRoster()
     self:Message("Logging out "..table.getn(names).." selected bot(s)")
 end
 
@@ -735,11 +771,6 @@ function UnBot:InviteBot(name)
     -- 2. Native TortoiseBots server command (.bot invite <name>)
     -- Frees stale group, converts full party to raid, and triggers immediate AI acceptance
     SendChatMessage(".bot invite "..name, "SAY")
-
-    -- 3. Queue status resync
-    if self.QueueRosterStatusSync then
-        self:QueueRosterStatusSync()
-    end
 end
 
 function UnBot:LoginAndInvite(name)
@@ -761,8 +792,11 @@ function UnBot:LoginAndInvite(name)
     else
         -- Bot is offline: bring online via .bot add and track pending invite
         self:QueueChat(".bot add "..name, "SAY")
+        if data then
+            data.online = true
+        end
         self:StartPendingInvite(name)
-        self:QueueRosterStatusSync()
+        self:RefreshRoster()
     end
 end
 
@@ -854,7 +888,7 @@ function UnBot:FillWith(maxSize)
         end
     end
 
-    self:QueueRosterStatusSync()
+    self:RefreshRoster()
     local what = maxSize > 5 and "raid" or "party"
     self:Message("Filling "..what..": "..table.getn(picked).." new, "..table.getn(reconnect).." reconnecting")
 end
@@ -875,10 +909,14 @@ function UnBot:BulkBotCommand(subcommand)
         if name ~= me then
             self:QueueChat(".bot "..cmd.." "..name, "SAY")
             queued = queued + 1
+            if cmd == "remove" and self.config.roster[name] then
+                self.config.roster[name].online = false
+                self.config.roster[name].grouped = false
+            end
         end
     end
     if queued > 0 then
-        self:QueueRosterStatusSync()
+        self:RefreshRoster()
         self:Message("Dispatched '.bot "..cmd.."' for "..queued.." character(s)")
     else
         self:Message("Nothing to log out")
@@ -1005,16 +1043,26 @@ function UnBot:CreateRosterRows(parent)
                 if IsInGroup(this.charName) then
                     NativeUninvite(this.charName)
                     UnBot:QueueChat(".bot uninvite "..this.charName, "SAY")
-                    UnBot:QueueRosterStatusSync()
+                    if UnBot.config.roster[this.charName] then
+                        UnBot.config.roster[this.charName].grouped = false
+                    end
+                    UnBot:RefreshRoster()
                     UnBot:Message("Removing "..this.charName.." from group")
                 else
                     UnBot:QueueChat(".bot remove "..this.charName, "SAY")
-                    UnBot:QueueRosterStatusSync()
+                    if UnBot.config.roster[this.charName] then
+                        UnBot.config.roster[this.charName].online = false
+                        UnBot.config.roster[this.charName].grouped = false
+                    end
+                    UnBot:RefreshRoster()
                     UnBot:Message("Logging out "..this.charName)
                 end
             elseif IsShiftKeyDown() then
                 UnBot:QueueChat(".bot add "..this.charName, "SAY")
-                UnBot:QueueRosterStatusSync()
+                if UnBot.config.roster[this.charName] then
+                    UnBot.config.roster[this.charName].online = true
+                end
+                UnBot:RefreshRoster()
                 UnBot:Message("Logging in "..this.charName.." without inviting")
             else
                 if IsInGroup(this.charName) then

@@ -82,11 +82,15 @@ UnBot:RegisterHandler(82, function()
     local count = 0
     ForEachGroupMember(function(name)
         UnBot:QueueChat(".bot remove "..name, "SAY")
+        if UnBot.config and UnBot.config.roster and UnBot.config.roster[name] then
+            UnBot.config.roster[name].online = false
+            UnBot.config.roster[name].grouped = false
+        end
         count = count + 1
     end)
     if count > 0 then
         UnBot:Message("Queued logout for "..count.." party bot(s)")
-        if UnBot.QueueRosterStatusSync then UnBot:QueueRosterStatusSync() end
+        if UnBot.RefreshRoster then UnBot:RefreshRoster() end
     else
         UnBot:Message("No group bots to log out")
     end
@@ -99,13 +103,14 @@ UnBot:RegisterHandler(83, function()
         for name, data in pairs(UnBot.config.roster) do
             if not data.self and not data.online then
                 UnBot:QueueChat(".bot add "..name, "SAY")
+                data.online = true
                 count = count + 1
             end
         end
     end
     if count > 0 then
         UnBot:Message("Queued login for "..count.." offline bot(s)")
-        if UnBot.QueueRosterStatusSync then UnBot:QueueRosterStatusSync() end
+        if UnBot.RefreshRoster then UnBot:RefreshRoster() end
     else
         UnBot:Message("No offline roster bots to log in")
     end
@@ -166,4 +171,9 @@ UnBot:RegisterHandler(69, function() UnBot:ShowSpellWindow()         end)
 -- [74] The account bot roster replaces the old "bring bots online" window.
 UnBot:RegisterHandler(74, function()
     UnBot:ToggleRoster()
+end)
+
+-- [77] Manual roster sync with server (.bot roster / .bot list)
+UnBot:RegisterHandler(77, function()
+    UnBot:RequestServerRoster(true)
 end)
