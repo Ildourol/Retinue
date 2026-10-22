@@ -214,6 +214,10 @@ end
 function UnBot:ToggleActionGroup(groupIndex)
     if not GROUP_TITLES[groupIndex] then return end
 
+    if UnBotCatalogFrame and UnBotCatalogFrame:IsShown() then
+        UnBotCatalogFrame:Hide()
+    end
+
     -- The roster contains its own social controls, so an intermediary
     -- command window no longer adds anything.
     if groupIndex == 10 then

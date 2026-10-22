@@ -67,6 +67,16 @@ An elegant, high-performance in-game graphical control suite built specifically 
   - **Use**: Direct the bot to consume food, drinks, bandages, or potions.
   - **Sell**: Flag junk and inventory items for vendor sale.
   - **Destroy**: Purge unwanted items from bot bags.
+  - **Catalog Shortcut**: Jump directly into the 26k+ Item Catalog & Spawner with one click.
+
+### 📦 Item Catalog & Spawner (Turtle WoW 1.18.1 / Vanilla 1.12.1)
+- Browse, filter, and search **26,542 authentic Turtle WoW and Vanilla items** (levels 1-60).
+- **Canonical Database Sourced**: Sourced directly from `tortoise-db-viewer` with genuine client DBC icon mappings pre-loaded for instant display.
+- **Zero Synthetic Clones**: Strictly excludes all synthetic scaled clones from `mod-twow-item-level-scaling` to maintain pure item authenticity.
+- **Dynamic Multi-Filters**: Filter by Level (All, `1-10` to `51-60`), Rarity (Poor to Legendary), and 22 Equipment Slots (Weapons, Armor, Relics, Bags, Consumables).
+- **Real-Time Name Search**: Instant substring search with clear/reset controls.
+- **1-Click Target Gearing**: Left-click any item to run `.additem <id> 1` directly onto your targeted bot companion or yourself.
+- **Bar & Window Integration**: Mounted directly on the main tactical bar at slot 12 next to Roster, accessible via `/retinue catalog`, `/retinue itemus`, `/retinue spawn`, or the `[Catalog]` button in the remote inventory window.
 
 ### 🛡️ Instant Role Assignment
 - Fast 1-click role bar for your entire group:
@@ -108,6 +118,7 @@ An elegant, high-performance in-game graphical control suite built specifically 
 | **Spellbook** | `/ret spells` | Inspect bot spells and toggle casting blacklists |
 | **Bags & Items** | `/ret bags` | Inspect bot inventory, force equip gear, use consumables, vendor items |
 | **Role Bar** | Role Button on bar | Rapidly set Tank, Healer, and DPS presets across all party bots |
+| **Item Catalog** | `/ret catalog` or bar | Browse 26,542 items, filter by slot/rarity/level, 1-click spawn |
 
 ---
 
@@ -123,6 +134,7 @@ Retinue provides intuitive, short commands as well as legacy aliases for backwar
 | `/ret strategy` | *none* | Open the Strategy Editor for your current target |
 | `/ret spells` | *none* | Open the remote Spellbook & Buffs panel |
 | `/ret bags` | *none* | Open the remote Bag & Inventory inspection grid |
+| `/ret catalog` | *none* | Open the 26k+ Item Catalog & Spawner browser |
 | `/ret fill` | *none* | Auto-fill open party slots (up to 5) with filtered bots |
 | `/ret fillraid` | *none* | Auto-convert to raid and fill open slots (up to 40) |
 | `/retcom <id>` or `/rc <id>` | `<id>` | Execute any action ID (1–182) directly via macro |

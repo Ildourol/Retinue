@@ -30,7 +30,7 @@ end
 
 function UnBot:CreateMainFrame()
     local frame = CreateFrame("Frame", "UnBotFrame", UIParent)
-    frame:SetWidth(12 * (BUTTON_SIZE + BUTTON_GAP) + 20)
+    frame:SetWidth(13 * (BUTTON_SIZE + BUTTON_GAP) + 20)
     frame:SetHeight(BUTTON_SIZE * 2 + 26)
     frame:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, 180)
     self:MakeDraggable(frame)
@@ -274,9 +274,29 @@ function UnBot:CreateGroupButtons()
         self.groupButtons[group] = btn
     end
 
+    -- Item Catalog & Spawner button (placed directly next to Roster)
+    local catalogX = MAIN_CONTENT_LEFT + 11 * (BUTTON_SIZE + BUTTON_GAP)
+    local catalogBtn = self:CreateIconButton("UnBotCatalogBarButton", UnBotFrame, catalogX,
+                                            GROUP_BUTTON_Y)
+    catalogBtn.icon:SetTexture("Interface\\Icons\\INV_Misc_Book_07")
+    catalogBtn:SetScript("OnClick", function()
+        if type(UnBot.ToggleCatalogWindow) == "function" then
+            UnBot:ToggleCatalogWindow()
+        end
+    end)
+    catalogBtn:SetScript("OnEnter", function()
+        GameTooltip:SetOwner(this, "ANCHOR_TOPRIGHT")
+        GameTooltip:AddLine("Item Catalog & Spawner", 1, 0.82, 0)
+        GameTooltip:AddLine("Browse 23,635 items & spawn onto target", 1, 1, 1)
+        GameTooltip:AddLine("Click to open / close", 0.65, 0.55, 0)
+        GameTooltip:Show()
+    end)
+    catalogBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    self.catalogButton = catalogBtn
+
     -- Role shortcuts get a fixed slot of their own rather than hiding in a
     -- popup, since they are meant to be one click away.
-    local roleX = MAIN_CONTENT_LEFT + 11 * (BUTTON_SIZE + BUTTON_GAP)
+    local roleX = MAIN_CONTENT_LEFT + 12 * (BUTTON_SIZE + BUTTON_GAP)
     local roles = self:CreateIconButton("UnBotRoleButton", UnBotFrame, roleX,
                                       GROUP_BUTTON_Y)
     self:ApplyButtonIcon(roles, 102)
@@ -480,6 +500,11 @@ function UnBot:ClearMainButtonHighlights()
             local texture = btn:GetHighlightTexture()
             if texture then texture:Hide() end
         end
+    end
+    if self.catalogButton then
+        self.catalogButton:UnlockHighlight()
+        local texture = self.catalogButton:GetHighlightTexture()
+        if texture then texture:Hide() end
     end
     if self.roleButton then
         self.roleButton:UnlockHighlight()

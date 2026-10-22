@@ -332,22 +332,8 @@ local I   = "Interface\\Icons\\"
 local IRT = "Interface\\TargetingFrame\\UI-RaidTargetingIcons"
 local IM  = "Interface\\AddOns\\Retinue\\Images\\"
 
--- Raid Target Icon mapping (1..8) for commands that represent specific raid marks:
--- 1 = Star, 2 = Circle, 3 = Diamond, 4 = Triangle
--- 5 = Moon, 6 = Square, 7 = Cross, 8 = Skull
-UnBotCommandRaidTarget = {
-    [116] = 8,  -- Target: Skull
-    [117] = 7,  -- Target: Cross
-    [118] = 6,  -- Target: Square
-    [119] = 5,  -- Target: Moon
-    [120] = 4,  -- Target: Triangle
-    [121] = 3,  -- Target: Diamond
-    [122] = 2,  -- Target: Circle
-    [123] = 1,  -- Target: Star
-    [125] = 8,  -- CC: Skull
-    [126] = 5,  -- CC: Moon
-    [159] = 8,  -- Focus Skull
-}
+-- Ingame icon mappings for all commands including raid marks and crowd control:
+UnBotCommandRaidTarget = {}
 UnBotCommandIcon = {
     [0]  = I.."Temp",                          -- orig (the WoW logo icon)
 
@@ -489,17 +475,17 @@ UnBotCommandIcon = {
     [113] = I.."Ability_TrueShot",              -- Pull RTI
     [114] = I.."Ability_Marksmanship",          -- Auto mark RTI
     [115] = I.."Ability_Hunter_RunningShot",    -- Toggle Kite
-    [116] = IRT,                                -- Target: Skull (RTI 8)
-    [117] = IRT,                                -- Target: Cross (RTI 7)
-    [118] = IRT,                                -- Target: Square (RTI 6)
-    [119] = IRT,                                -- Target: Moon (RTI 5)
-    [120] = IRT,                                -- Target: Triangle (RTI 4)
-    [121] = IRT,                                -- Target: Diamond (RTI 3)
-    [122] = IRT,                                -- Target: Circle (RTI 2)
-    [123] = IRT,                                -- Target: Star (RTI 1)
+    [116] = I.."Spell_Shadow_Skull",            -- Target: Skull
+    [117] = I.."Ability_DualWield",             -- Target: Cross
+    [118] = I.."INV_Misc_Gem_Sapphire_01",      -- Target: Square
+    [119] = I.."Spell_Nature_Sleep",            -- Target: Moon
+    [120] = I.."INV_Misc_Gem_Emerald_01",       -- Target: Triangle
+    [121] = I.."INV_Misc_Gem_Amethyst_01",      -- Target: Diamond
+    [122] = I.."Spell_Fire_SealOfFire",         -- Target: Circle
+    [123] = I.."Spell_Holy_HolySmite",          -- Target: Star
     [124] = I.."Spell_ChargeNegative",          -- Target: Clear
-    [125] = IRT,                                -- CC: Skull (RTI 8)
-    [126] = IRT,                                -- CC: Moon (RTI 5)
+    [125] = I.."Spell_Shadow_Cripple",          -- CC: Skull
+    [126] = I.."Spell_Nature_Polymorph",        -- CC: Moon
     [127] = I.."Spell_Holy_DispelMagic",        -- CC: Clear
 
     -- loot strategy filters (128-135)
@@ -543,7 +529,7 @@ UnBotCommandIcon = {
     [156] = I.."Ability_Kick",
     [157] = I.."Ability_Hunter_RunningShot",
     [158] = I.."Spell_ChargeNegative",
-    [159] = IRT,                                -- Focus Skull (RTI 8)
+    [159] = I.."Spell_Shadow_Skull",            -- Focus Skull
     [160] = I.."Spell_Fire_SelfDestruct",       -- Toggle AoE
     [161] = I.."Spell_Nature_Polymorph",
     [162] = I.."Ability_Sap",

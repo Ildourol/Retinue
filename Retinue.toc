@@ -6,11 +6,13 @@
 
 Localization.lua
 Data.lua
+CatalogData.lua
 Core.lua
 Actions.lua
 UI.lua
 Roster.lua
 Items.lua
+Catalog.lua
 Strategy.lua
 Spells.lua
 Commands.lua

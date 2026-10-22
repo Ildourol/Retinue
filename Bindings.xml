@@ -50,4 +50,7 @@
   <Binding runOnUp="false" name="RETINUE_RPG">
     if Retinue then Retinue:RunCommand(145) elseif UnBot then UnBot:RunCommand(145) end
   </Binding>
+  <Binding runOnUp="false" name="RETINUE_CATALOG">
+    if Retinue then Retinue:ToggleCatalogWindow() elseif UnBot then UnBot:ToggleCatalogWindow() end
+  </Binding>
 </Bindings>

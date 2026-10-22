@@ -130,6 +130,8 @@ function UnBot:RegisterSlashCommands()
             UnBot:ShowSpellWindow()
         elseif msg == "bags" then
             UnBot:ShowItemWindow("view")
+        elseif msg == "catalog" or msg == "itemus" or msg == "spawn" then
+            UnBot:ToggleCatalogWindow()
         elseif msg == "capture" then
             UnBot:ToggleCapture()
         elseif msg == "capture clear" then
@@ -146,7 +148,7 @@ function UnBot:RegisterSlashCommands()
             UnBot:Message("/retinue - show or hide the command bar")
             UnBot:Message("Everything else has a button on the bar; these are")
             UnBot:Message("just shortcuts for the same windows:")
-            UnBot:Message("  roster, sync, strategy, spells, bags, fill, fillraid")
+            UnBot:Message("  roster, sync, strategy, spells, bags, catalog, fill, fillraid")
             UnBot:Message("Diagnostics: capture, debug, checkapi, ask all")
         else
             UnBot:ToggleUI()
@@ -181,6 +183,7 @@ function UnBot:CloseAll()
     elseif UnBotActionsFrame then
         UnBotActionsFrame:Hide()
     end
+    if UnBotCatalogFrame then UnBotCatalogFrame:Hide() end
     if UnBotFrame then UnBotFrame:Hide() end
     self:Message(UnBotL.MSG.CLOSE_BAR)
 end
