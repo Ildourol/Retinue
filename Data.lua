@@ -329,8 +329,25 @@ UnBotCommandOrder = {
 -- with WotLK and render as an empty button on 1.12. Entries marked "orig" are
 -- the untouched original icon; the rest are Vanilla-safe stand-ins.
 local I   = "Interface\\Icons\\"
-local IRT = "Interface\\TargetingFrame\\UI-RaidTargetingIcon_"
+local IRT = "Interface\\TargetingFrame\\UI-RaidTargetingIcons"
 local IM  = "Interface\\AddOns\\Retinue\\Images\\"
+
+-- Raid Target Icon mapping (1..8) for commands that represent specific raid marks:
+-- 1 = Star, 2 = Circle, 3 = Diamond, 4 = Triangle
+-- 5 = Moon, 6 = Square, 7 = Cross, 8 = Skull
+UnBotCommandRaidTarget = {
+    [116] = 8,  -- Target: Skull
+    [117] = 7,  -- Target: Cross
+    [118] = 6,  -- Target: Square
+    [119] = 5,  -- Target: Moon
+    [120] = 4,  -- Target: Triangle
+    [121] = 3,  -- Target: Diamond
+    [122] = 2,  -- Target: Circle
+    [123] = 1,  -- Target: Star
+    [125] = 8,  -- CC: Skull
+    [126] = 5,  -- CC: Moon
+    [159] = 8,  -- Focus Skull
+}
 UnBotCommandIcon = {
     [0]  = I.."Temp",                          -- orig (the WoW logo icon)
 
@@ -472,17 +489,17 @@ UnBotCommandIcon = {
     [113] = I.."Ability_TrueShot",              -- Pull RTI
     [114] = I.."Ability_Marksmanship",          -- Auto mark RTI
     [115] = I.."Ability_Hunter_RunningShot",    -- Toggle Kite
-    [116] = IRT.."8",                           -- Target: Skull
-    [117] = IRT.."7",                           -- Target: Cross
-    [118] = IRT.."6",                           -- Target: Square
-    [119] = IRT.."5",                           -- Target: Moon
-    [120] = IRT.."4",                           -- Target: Triangle
-    [121] = IRT.."3",                           -- Target: Diamond
-    [122] = IRT.."2",                           -- Target: Circle
-    [123] = IRT.."1",                           -- Target: Star
+    [116] = IRT,                                -- Target: Skull (RTI 8)
+    [117] = IRT,                                -- Target: Cross (RTI 7)
+    [118] = IRT,                                -- Target: Square (RTI 6)
+    [119] = IRT,                                -- Target: Moon (RTI 5)
+    [120] = IRT,                                -- Target: Triangle (RTI 4)
+    [121] = IRT,                                -- Target: Diamond (RTI 3)
+    [122] = IRT,                                -- Target: Circle (RTI 2)
+    [123] = IRT,                                -- Target: Star (RTI 1)
     [124] = I.."Spell_ChargeNegative",          -- Target: Clear
-    [125] = IRT.."8",                           -- CC: Skull
-    [126] = IRT.."5",                           -- CC: Moon
+    [125] = IRT,                                -- CC: Skull (RTI 8)
+    [126] = IRT,                                -- CC: Moon (RTI 5)
     [127] = I.."Spell_Holy_DispelMagic",        -- CC: Clear
 
     -- loot strategy filters (128-135)
@@ -526,7 +543,7 @@ UnBotCommandIcon = {
     [156] = I.."Ability_Kick",
     [157] = I.."Ability_Hunter_RunningShot",
     [158] = I.."Spell_ChargeNegative",
-    [159] = IRT.."8",                           -- Focus Skull
+    [159] = IRT,                                -- Focus Skull (RTI 8)
     [160] = I.."Spell_Fire_SelfDestruct",       -- Toggle AoE
     [161] = I.."Spell_Nature_Polymorph",
     [162] = I.."Ability_Sap",

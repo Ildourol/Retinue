@@ -237,7 +237,41 @@ end
 --=========================================================================--
 
 function UnBot:GetIconPath(commandId)
+    local rti = self:GetRaidTargetIndex(commandId)
+    if rti then
+        return "Interface\\TargetingFrame\\UI-RaidTargetingIcons"
+    end
     return UnBotCommandIcon[commandId] or "Interface\\Icons\\INV_Misc_QuestionMark"
+end
+
+function UnBot:GetRaidTargetIndex(commandId)
+    if UnBotCommandRaidTarget then
+        return UnBotCommandRaidTarget[commandId]
+    end
+    return nil
+end
+
+function UnBot:ApplyButtonIcon(buttonOrTexture, commandId)
+    if not buttonOrTexture then return end
+    local tex = buttonOrTexture.icon or buttonOrTexture
+    if not tex or not tex.SetTexture then return end
+
+    local rtiIndex = self:GetRaidTargetIndex(commandId)
+    if rtiIndex and rtiIndex >= 1 and rtiIndex <= 8 then
+        if SetRaidTargetIconTexture then
+            SetRaidTargetIconTexture(tex, rtiIndex)
+        else
+            tex:SetTexture("Interface\\TargetingFrame\\UI-RaidTargetingIcons")
+            local left = math.mod(rtiIndex - 1, 4) * 0.25
+            local right = left + 0.25
+            local top = math.floor((rtiIndex - 1) / 4) * 0.25
+            local bottom = top + 0.25
+            tex:SetTexCoord(left, right, top, bottom)
+        end
+    else
+        tex:SetTexture(self:GetIconPath(commandId))
+        tex:SetTexCoord(0, 1, 0, 1)
+    end
 end
 
 function UnBot:GetTitle(commandId)

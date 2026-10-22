@@ -279,7 +279,7 @@ function UnBot:CreateGroupButtons()
     local roleX = MAIN_CONTENT_LEFT + 11 * (BUTTON_SIZE + BUTTON_GAP)
     local roles = self:CreateIconButton("UnBotRoleButton", UnBotFrame, roleX,
                                       GROUP_BUTTON_Y)
-    roles.icon:SetTexture(self:GetIconPath(102))
+    self:ApplyButtonIcon(roles, 102)
     roles:SetScript("OnClick", function()
         UnBot:ToggleRoleBar()
     end)
@@ -421,7 +421,7 @@ function UnBot:RefreshFavorites()
         button.commandId = nil
         if commandId then
             button.commandId = commandId
-            button.icon:SetTexture(self:GetIconPath(commandId))
+            self:ApplyButtonIcon(button, commandId)
             button:Show()
         else
             button:Hide()

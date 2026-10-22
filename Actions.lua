@@ -497,7 +497,7 @@ function UnBot:RefreshActionGroup(groupIndex)
                                     -48 - (row - 1) * ACTION_ROW_HEIGHT)
                     if entry then
                         button.commandId = entry.id
-                        button.icon:SetTexture(self:GetIconPath(entry.id))
+                        self:ApplyButtonIcon(button, entry.id)
                         button.label:SetText(entry.label)
                         button:Show()
                     end
@@ -531,7 +531,7 @@ function UnBot:RefreshActionGroup(groupIndex)
                                 18 + (col - 1) * (ACTION_BUTTON_WIDTH + ACTION_COL_GAP),
                                 -48 - (row - 1) * ACTION_ROW_HEIGHT - gap)
                 button.commandId = entry.id
-                button.icon:SetTexture(self:GetIconPath(entry.id))
+                self:ApplyButtonIcon(button, entry.id)
                 local label = entry.label
                 if type(self.IsFavorite) == "function" and self:IsFavorite(entry.id) then
                     label = "* "..label
