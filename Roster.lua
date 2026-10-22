@@ -148,25 +148,83 @@ local function NativeInvite(selfOrName, maybeName)
         InviteUnit(name)
         return true
     end
+    if SlashCmdList and SlashCmdList["INVITE"] then
+        SlashCmdList["INVITE"](name)
+        return true
+    end
     return false
 end
 UnBot.NativeInvite = NativeInvite
 setglobal("NativeInvite", NativeInvite)
 NativeInvite = NativeInvite
 
+-- Returns the unit ID ("party1".."party4" or "raid1".."raid40") for a character name
+local function GetGroupUnit(name)
+    if not name or type(name) ~= "string" then return nil end
+    local lower = string.lower(name)
+    local raid = GetNumRaidMembers()
+    if raid and raid > 0 then
+        for i = 1, raid do
+            local rName = UnitName("raid"..i)
+            if rName and string.lower(rName) == lower then
+                return "raid"..i
+            end
+        end
+    else
+        local party = GetNumPartyMembers()
+        if party and party > 0 then
+            for i = 1, party do
+                local pName = UnitName("party"..i)
+                if pName and string.lower(pName) == lower then
+                    return "party"..i
+                end
+            end
+        end
+    end
+    return nil
+end
+UnBot.GetGroupUnit = GetGroupUnit
+
+-- Uninvites a character from the player's party or raid across all WoW 1.12 mechanisms
+function UnBot:UninviteBot(name)
+    if not name or not IsValidCharacterName(name) then return false end
+
+    -- 1. Look up unit ID ("party1".."party4", "raid1".."raid40") and uninvite via native unit API
+    local unit = GetGroupUnit(name)
+    if unit and type(UninviteUnit) == "function" then
+        UninviteUnit(unit)
+    end
+
+    -- 2. Try native UninviteByName API
+    if type(UninviteByName) == "function" then
+        UninviteByName(name)
+    end
+
+    -- 3. Execute client slash command /uninvite <name>
+    if SlashCmdList and SlashCmdList["UNINVITE"] then
+        SlashCmdList["UNINVITE"](name)
+    end
+
+    -- 4. Tell the bot AI to voluntarily leave the party via whisper (handled by LeaveGroupAction)
+    SendChatMessage("leave", "WHISPER", nil, name)
+
+    -- 5. Send .bot uninvite <name> for TortoiseBots module engine
+    SendChatMessage(".bot uninvite "..name, "SAY")
+
+    -- 6. Update local roster record
+    if self.config and self.config.roster and self.config.roster[name] then
+        self.config.roster[name].grouped = false
+    end
+
+    return true
+end
+
 -- Helper to perform native client party uninvitation (CMSG_GROUP_UNINVITE)
 local function NativeUninvite(selfOrName, maybeName)
     local name = maybeName or selfOrName
     if name == UnBot and maybeName == nil then return false end
     if not name or name == "" or type(name) ~= "string" then return false end
-    if type(UninviteByName) == "function" then
-        UninviteByName(name)
-        return true
-    elseif type(UninviteUnit) == "function" then
-        UninviteUnit(name)
-        return true
-    end
-    return false
+    return UnBot:UninviteBot(name)
 end
 UnBot.NativeUninvite = NativeUninvite
 setglobal("NativeUninvite", NativeUninvite)
@@ -283,6 +341,13 @@ function UnBot:ScanGroupBots()
         CheckUnit("target")
     end
 
+    -- Update grouped state for all roster characters no longer in group
+    for rName, rData in pairs(UnBot.config.roster) do
+        if rData and not rData.self then
+            rData.grouped = IsInGroup(rName)
+        end
+    end
+
     return found
 end
 
@@ -298,8 +363,12 @@ function UnBot:AddRosterCharacter(name, classToken, level)
     local entry = self.config.roster[name] or {}
     entry.class = classToken or entry.class or "WARRIOR"
     entry.level = (level and level > 0) and level or entry.level or 0
-    if entry.online == nil then entry.online = false end
     entry.grouped = IsInGroup(name)
+    if entry.grouped then
+        entry.online = true
+    elseif entry.online == nil then
+        entry.online = false
+    end
     self.config.roster[name] = entry
 
     self:Message("Added bot '"..name.."' ("..entry.class..") to player roster")
@@ -482,9 +551,17 @@ function UnBot:RecordCurrentCharacter()
 end
 
 function UnBot:RemoveRosterCharacter(name)
+    if not name or not IsValidCharacterName(name) then return end
     if self.config.roster[name] then
+        if IsInGroup(name) then
+            self:UninviteBot(name)
+        end
         self.config.roster[name] = nil
+        if self.rosterSelection then
+            self.rosterSelection[name] = nil
+        end
         self:Message("Removed "..name.." from the roster")
+        self:RefreshRoster()
     end
 end
 
@@ -670,21 +747,25 @@ function UnBot:CreateBulkButtons(parent)
         UnBot:RunCommand(88)
     end, "Adds your current party or raid members to the friends list.")
 
-    -- Row 2: Selected actions and quick refresh
-    MakeButton("UnBotRosterRemoveSelected", "Remove selected", 18, -354, 118, function()
+    -- Row 2: Selected actions, roster removal, and refresh
+    MakeButton("UnBotRosterRemoveSelected", "Uninvite", 18, -354, 76, function()
         UnBot:RemoveSelectedFromGroup()
-    end, "Uninvites checked bots from your group via .bot uninvite without logging them out.")
+    end, "Uninvites checked bots from your current group (leaves them in roster).")
 
-    MakeButton("UnBotRosterLogoutSelected", "Log out selected", 140, -354, 118, function()
+    MakeButton("UnBotRosterLogoutSelected", "Log out", 98, -354, 76, function()
         UnBot:LogoutSelectedBots()
     end, "Logs out checked bots via .bot remove.")
 
-    MakeButton("UnBotRosterClearSelection", "Clear select", 262, -354, 90, function()
+    MakeButton("UnBotRosterDropSelected", "Delete", 178, -354, 76, function()
+        UnBot:DeleteSelectedRoster()
+    end, "Permanently drops checked bots from your roster list.")
+
+    MakeButton("UnBotRosterClearSelection", "Clear", 258, -354, 68, function()
         UnBot:ClearRosterSelection()
     end, "Clears all checked roster boxes.")
 
-    MakeButton("UnBotRosterRefreshBtn", "Sync", 356, -354, 54, function()
-        UnBot:RequestServerRoster()
+    MakeButton("UnBotRosterRefreshBtn", "Sync", 330, -354, 68, function()
+        UnBot:RequestServerRoster(true)
     end, "Requests live roster and online status from the server via .bot roster.")
 end
 
@@ -719,7 +800,7 @@ function UnBot:ClearRosterSelection()
     self:RefreshRoster()
 end
 
--- Uninvites selected bots from group using modern TortoiseBots .bot uninvite and native uninvite
+-- Uninvites selected bots from group (or drops from roster if not in group)
 function UnBot:RemoveSelectedFromGroup()
     local names = self:GetSelectedRosterNames()
     if table.getn(names) == 0 then
@@ -727,27 +808,53 @@ function UnBot:RemoveSelectedFromGroup()
         return
     end
 
-    local queued = 0
+    local uninvitedCount = 0
+    local droppedCount = 0
+
     for i = 1, table.getn(names) do
         local name = names[i]
         if IsInGroup(name) then
-            NativeUninvite(name)
-            self:QueueChat(".bot uninvite "..name, "SAY")
-            if self.config.roster[name] then
-                self.config.roster[name].grouped = false
-            end
-            queued = queued + 1
+            self:UninviteBot(name)
+            uninvitedCount = uninvitedCount + 1
+        else
+            self.config.roster[name] = nil
+            droppedCount = droppedCount + 1
         end
     end
+
     self:ClearRosterSelection()
-    self:ScanGroupBots()
     self:RefreshRoster()
 
-    if queued == 0 then
-        self:Message("None of the selected bots are in your current group")
-    else
-        self:Message("Uninviting "..queued.." selected bot(s) from group")
+    if uninvitedCount > 0 and droppedCount > 0 then
+        self:Message("Uninvited "..uninvitedCount.." bot(s) from group and dropped "..droppedCount.." bot(s) from roster")
+    elseif uninvitedCount > 0 then
+        self:Message("Uninvited "..uninvitedCount.." selected bot(s) from group")
+    elseif droppedCount > 0 then
+        self:Message("Removed "..droppedCount.." selected bot(s) from roster list")
     end
+end
+
+-- Permanently drops selected bots from the roster list and uninvites them if in group
+function UnBot:DeleteSelectedRoster()
+    local names = self:GetSelectedRosterNames()
+    if table.getn(names) == 0 then
+        self:Message("No bots selected (check boxes next to characters)")
+        return
+    end
+
+    local count = 0
+    for i = 1, table.getn(names) do
+        local name = names[i]
+        if IsInGroup(name) then
+            self:UninviteBot(name)
+        end
+        self.config.roster[name] = nil
+        count = count + 1
+    end
+
+    self:ClearRosterSelection()
+    self:RefreshRoster()
+    self:Message("Removed "..count.." bot(s) from roster list")
 end
 
 function UnBot:LogoutSelectedBots()
@@ -759,7 +866,7 @@ function UnBot:LogoutSelectedBots()
     for i = 1, table.getn(names) do
         local name = names[i]
         if IsInGroup(name) then
-            NativeUninvite(name)
+            self:UninviteBot(name)
         end
         self:QueueChat(".bot remove "..name, "SAY")
         if self.config.roster[name] then
@@ -1049,6 +1156,10 @@ function UnBot:CreateRosterRows(parent)
         row:SetPoint("TOPLEFT", parent, "TOPLEFT", 126, -66 - (i - 1) * ROW_HEIGHT)
         row:RegisterForClicks("LeftButtonUp", "RightButtonUp")
         row:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight", "ADD")
+        row:EnableMouseWheel(true)
+        row:SetScript("OnMouseWheel", function()
+            UnBot:ScrollRoster(-arg1)
+        end)
 
         local check = CreateFrame("CheckButton", "UnBotRosterSelect"..i, row,
                                   "UICheckButtonTemplate")
@@ -1100,11 +1211,7 @@ function UnBot:CreateRosterRows(parent)
                     return
                 end
                 if IsInGroup(this.charName) then
-                    NativeUninvite(this.charName)
-                    UnBot:QueueChat(".bot uninvite "..this.charName, "SAY")
-                    if UnBot.config.roster[this.charName] then
-                        UnBot.config.roster[this.charName].grouped = false
-                    end
+                    UnBot:UninviteBot(this.charName)
                     UnBot:RefreshRoster()
                     UnBot:Message("Removing "..this.charName.." from group")
                 else
@@ -1149,13 +1256,22 @@ function UnBot:CreateRosterRows(parent)
             local data = UnBot.config.roster[this.charName] or {}
             if data and data.class then
                 local c = CLASS_COLOR[data.class] or {1, 1, 1}
-                GameTooltip:AddLine(data.class, c[1], c[2], c[3])
+                local lvl = (data.level and data.level > 0) and (" (Level "..data.level..")") or ""
+                GameTooltip:AddLine(data.class..lvl, c[1], c[2], c[3])
             end
+            if IsInGroup(this.charName) then
+                GameTooltip:AddLine("Status: In party/raid", 0.2, 0.9, 0.9)
+            elseif data.online then
+                GameTooltip:AddLine("Status: Online in world", 0.3, 1.0, 0.3)
+            else
+                GameTooltip:AddLine("Status: Offline", 0.6, 0.6, 0.6)
+            end
+            GameTooltip:AddLine(" ")
             GameTooltip:AddLine("Checkbox: select for bulk actions", 0.65, 0.75, 1)
-            GameTooltip:AddLine("Left-click: invite / bring into party", 0.3, 1, 0.3)
+            GameTooltip:AddLine("Left-click: invite / target in group", 0.3, 1, 0.3)
             GameTooltip:AddLine("Right-click: remove from group / log out", 1, 0.5, 0.3)
             GameTooltip:AddLine("Shift+left-click: log in only (stay solo)", 0.8, 0.8, 0.8)
-            GameTooltip:AddLine("Shift+right-click: drop from roster list", 0.6, 0.6, 0.6)
+            GameTooltip:AddLine("Shift+right-click: drop from roster list", 0.9, 0.4, 0.4)
             GameTooltip:Show()
         end)
         row:SetScript("OnLeave", function() GameTooltip:Hide() end)

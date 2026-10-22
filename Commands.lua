@@ -34,12 +34,17 @@ local function ForEachGroupMember(func)
     end
 end
 
--- Vanilla exposes UninviteByName; TBC and later renamed it to UninviteUnit.
+-- Uninvite helper utilizing Retinue's robust uninvite pipeline
 local function KickFromGroup(name)
-    if type(UninviteByName) == "function" then
-        UninviteByName(name)
-    elseif type(UninviteUnit) == "function" then
-        UninviteUnit(name)
+    if UnBot and UnBot.UninviteBot then
+        UnBot:UninviteBot(name)
+    else
+        if type(UninviteByName) == "function" then
+            UninviteByName(name)
+        elseif type(UninviteUnit) == "function" then
+            UninviteUnit(name)
+        end
+        SendChatMessage("leave", "WHISPER", nil, name)
     end
 end
 
@@ -136,7 +141,6 @@ UnBot:RegisterHandler(71, function()
     SendChatMessage("nc +grind", "PARTY")
     SendChatMessage("stay", "PARTY")
     ForEachGroupMember(function(name)
-        SendChatMessage(".bot uninvite "..name, "SAY")
         KickFromGroup(name)
     end)
     UnBot:Message("Disbanded party bots")

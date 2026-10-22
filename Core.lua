@@ -90,6 +90,20 @@ function UnBot:RegisterSlashCommands()
         elseif verb == "invite" then
             UnBot:TestInvite(rest)
             return
+        elseif verb == "uninvite" or verb == "kick" then
+            if rest ~= "" and UnBot.UninviteBot then
+                UnBot:UninviteBot(rest)
+            elseif UnBot.RemoveSelectedFromGroup then
+                UnBot:RemoveSelectedFromGroup()
+            end
+            return
+        elseif verb == "remove" or verb == "delete" then
+            if rest ~= "" and UnBot.RemoveRosterCharacter then
+                UnBot:RemoveRosterCharacter(rest)
+            elseif UnBot.DeleteSelectedRoster then
+                UnBot:DeleteSelectedRoster()
+            end
+            return
         elseif verb == "checkapi" then
             UnBot:CheckAPI()
             return
