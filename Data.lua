@@ -329,7 +329,7 @@ UnBotCommandOrder = {
 -- with WotLK and render as an empty button on 1.12. Entries marked "orig" are
 -- the untouched original icon; the rest are Vanilla-safe stand-ins.
 local I  = "Interface\\Icons\\"
-local IM = "Interface\\AddOns\\Warband\\Images\\"
+local IM = "Interface\\AddOns\\Retinue\\Images\\"
 UnBotCommandIcon = {
     [0]  = I.."Temp",                          -- orig (the WoW logo icon)
 

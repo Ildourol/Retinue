@@ -182,7 +182,7 @@ function UnBot:QueueRoleForBot(name, classToken, which, queryAfter)
     local role = preset and preset[which]
     if not role or not name then return false end
 
-    -- Send source-verified strategy commands matching original Warband presets.
+    -- Send source-verified strategy commands matching original Retinue presets.
     -- vMaNGOS playerbots supports chained comma-separated syntax ("co -arms,-fury,+protection")
     -- which applies changes atomically without chat throttle queue delays.
     local off = role.off

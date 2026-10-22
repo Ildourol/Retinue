@@ -3,14 +3,16 @@
 --   * script handlers receive no arguments; use globals `this`, `event`, `arg1`
 --   * no `#` (use table.getn), no `%` (use math.mod), no `...` varargs
 
--- The addon is called Warband; the internal UnBot* names are kept from its
--- origin so the saved variables (and your roster) survive the rename.
-UnBot = {}
-UnBot.addonName = "Warband"
-UnBot.version = "1.0"
-UnBot.groupButtons = {}
-UnBot.subButtons = {}
-UnBot.handlers = {}
+-- The addon is called Retinue.
+Retinue = {}
+Retinue.addonName = "Retinue"
+Retinue.version = "1.0"
+Retinue.groupButtons = {}
+Retinue.subButtons = {}
+Retinue.handlers = {}
+
+-- Backwards compatibility aliases
+UnBot = Retinue
 
 function UnBot:Message(msg)
     DEFAULT_CHAT_FRAME:AddMessage("|cff00cccc"..msg.."|r")
@@ -20,8 +22,11 @@ function UnBot:Init()
     if self.inited then return end
     self.inited = true
 
-    if UnBotConfig == nil then UnBotConfig = {} end
-    self.config = UnBotConfig
+    if RetinueConfig == nil then
+        RetinueConfig = UnBotConfig or {}
+    end
+    self.config = RetinueConfig
+    UnBotConfig = RetinueConfig
     self.capturing = self.config.capturing
 
     self:RegisterSlashCommands()
@@ -31,7 +36,7 @@ function UnBot:Init()
     if UnBotGroupDefault == nil or UnBotExecuteCommand == nil
        or UnBotCommandIcon == nil then
         DEFAULT_CHAT_FRAME:AddMessage(
-            "|cffff0000UnBot: command data missing. Restart the game client "..
+            "|cffff0000Retinue: command data missing. Restart the game client "..
             "completely - /reload does not pick up newly added files.|r")
         return
     end
@@ -40,14 +45,17 @@ function UnBot:Init()
     self:InitItemEvents()
     self:InitSpellEvents()
     self:InitUI()
-    self:Message(self.addonName.." "..self.version.." loaded. Use /warband")
+    self:Message(self.addonName.." "..self.version.." loaded. Use /retinue")
 end
 
 function UnBot:RegisterSlashCommands()
-    SLASH_UNBOT1 = "/warband"
-    SLASH_UNBOT2 = "/wb"
-    SLASH_UNBOT3 = "/unbot"        -- old name, kept so muscle memory still works
-    SlashCmdList["UNBOT"] = function(msg)
+    SLASH_RETINUE1 = "/retinue"
+    SLASH_RETINUE2 = "/ret"
+    SLASH_RETINUE3 = "/rtn"
+    SLASH_RETINUE4 = "/warband"
+    SLASH_RETINUE5 = "/wb"
+    SLASH_RETINUE6 = "/unbot"
+    SlashCmdList["RETINUE"] = function(msg)
         msg = string.lower(msg or "")
         -- some clients hand over a leading space, which would make every
         -- comparison below miss
@@ -103,7 +111,7 @@ function UnBot:RegisterSlashCommands()
                 UnBot:Message("Debug off")
             end
         elseif msg == "help" then
-            UnBot:Message("/warband - show or hide the command bar")
+            UnBot:Message("/retinue - show or hide the command bar")
             UnBot:Message("Everything else has a button on the bar; these are")
             UnBot:Message("just shortcuts for the same windows:")
             UnBot:Message("  roster, sync, strategy, spells, bags, fill, fillraid")
@@ -112,13 +120,18 @@ function UnBot:RegisterSlashCommands()
             UnBot:ToggleUI()
         end
     end
+    SlashCmdList["UNBOT"] = SlashCmdList["RETINUE"]
 
-    SLASH_UNBOTCOM1 = "/unbotcom"
-    SLASH_UNBOTCOM2 = "/ubc"
-    SlashCmdList["UNBOTCOM"] = function(msg)
+    SLASH_RETINUECOM1 = "/retcom"
+    SLASH_RETINUECOM2 = "/rc"
+    SLASH_RETINUECOM3 = "/unbotcom"
+    SLASH_RETINUECOM4 = "/ubc"
+    SlashCmdList["RETINUECOM"] = function(msg)
         local index = tonumber(msg)
         if index then UnBot:RunCommand(index) end
     end
+    SlashCmdList["UNBOTCOM"] = SlashCmdList["RETINUECOM"]
+end
 end
 
 function UnBot:ToggleUI()

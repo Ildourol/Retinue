@@ -1,6 +1,6 @@
-# Warband Companion Addon: Complete Tactical Command Guide & Reference
+# Retinue Companion Addon: Complete Tactical Command Guide & Reference
 
-> **Addon Name**: `Warband` (`mod-twow-playerbots-addon`)  
+> **Addon Name**: `Retinue`  
 > **Target Environment**: Turtle WoW (Client 1.12.1 / Engine 1.18.1.7272)  
 > **Companion Engine**: `TortoiseBots` (PlayerBot Subsystem)  
 > **Encoding**: UTF-8 without BOM  
@@ -10,10 +10,10 @@
 
 ## 1. Overview & Architecture
 
-The **Warband** companion addon provides a comprehensive command center for controlling `TortoiseBots` on Turtle WoW. It enables solo players to command a fully functional group of player bots across dungeons, raids, battlegrounds, and open-world questing.
+The **Retinue** companion addon provides a comprehensive command center for controlling `TortoiseBots` on Turtle WoW. It enables solo players to command a fully functional group of player bots across dungeons, raids, battlegrounds, and open-world questing.
 
 ### 1.1 Communication Scopes & Dispatch Pipeline
-Warband delivers instructions through four distinct communication channels:
+Retinue delivers instructions through four distinct communication channels:
 1. **Server Command (`Scope 1 / SAY`)**: Dispatched as an authoritative engine dot-command (`.bot <verb>`). Processed with zero network latency directly by the world server.
 2. **Whisper Scope (`Scope 2 / WHISPER`)**: Whispered directly to your currently targeted bot companion (`/w <BotName> <verb>`).
 3. **Party Target Scope (`Scope 3 / PARTY Target`)**: Dispatched through group chat (`/p <verb>`), requiring a hostile target selected by the player.
@@ -26,10 +26,10 @@ In the TortoiseBots engine, combat (`co`), non-combat (`nc`), and loot (`ll`) st
 - **`~` (Single-Click Toggle)**: **The native TortoiseBots toggle operator** (Engine `case '~': toggleStrategy()`). If the strategy is currently active, it is disabled; if inactive, it is enabled. Used on buttons like **Command 174** (`co ~focus`), **Command 175** (`co ~aoe fear`), **Command 114** (`co ~mark rti`), and **Command 115** (`co ~kite`).
 
 ### 1.3 Protocol Suppression (Chat Cleanliness)
-All inbound status reports and machine-readable protocol messages prefixed with `^TBM:` are intercepted and suppressed from the main chat frame by Warband's custom chat filter. This guarantees that your combat log and general chat remain uncluttered while the GUI processes real-time bot status telemetry.
+All inbound status reports and machine-readable protocol messages prefixed with `^TBM:` are intercepted and suppressed from the main chat frame by Retinue's custom chat filter. This guarantees that your combat log and general chat remain uncluttered while the GUI processes real-time bot status telemetry.
 
 ### 1.4 The Persistent Favorites System
-- The main Warband bar includes **10 persistent quick-action favorite slots** along the top row.
+- The main Retinue bar includes **10 persistent quick-action favorite slots** along the top row.
 - **Add Favorite**: Open any category dropdown window, locate the desired command, and **Right-Click** its button. A yellow asterisk `*` indicates a favorited command.
 - **Remove Favorite**: Right-Click the button on the favorites bar to confirm removal, or click the **Clear (`X`)** button to wipe all favorites.
 - **Expanded Modal (`>`)**: If you configure more than 10 favorites, the `>` button opens an expanded grid view allowing mouse-wheel scrolling through your full favorites collection.
@@ -365,7 +365,7 @@ The **Player Roster** is an interactive full-screen management interface rather 
 ## 3. Dedicated Interactive Windows
 
 ### 3.1 Player Roster Window (Command ID 74 / Group 10)
-- **Access**: Click Group 10 icon on command bar, or type `/warband roster` or `/wb roster`.
+- **Access**: Click Group 10 icon on command bar, or type `/retinue roster` or `/ret roster` (or `/wb roster`).
 - **Controls**:
   - **Search & Add Input**: Live character filtering as you type into `UnBotRosterSearch`. If the character is not in the roster, press **Enter** or click the green **`+ Add "<Name>"`** prompt in Row 1 to add them immediately.
   - **`+ Target` Button**: Dedicated button on the left panel (under Druid) that immediately registers your currently selected friendly player or bot into the saved roster.
@@ -382,7 +382,7 @@ The **Player Roster** is an interactive full-screen management interface rather 
   - **Sync**: Automatically scans group and dispatches both `.bot roster` (account alts) and `.bot list` (active world bot instances) to synchronize database and world states.
 
 ### 3.2 Strategy Editor Window (Command ID 54 / Group 8)
-- **Access**: Click `Editor` in Group 8, or type `/warband strategy`.
+- **Access**: Click `Editor` in Group 8, or type `/retinue strategy` (or `/ret strat`).
 - **Controls**:
   - Displays all AI combat strategy toggles reported by the targeted bot (e.g. `dps`, `tank`, `heal`, `aoe`, `threat`, `shadow`, `frost`, `fire`, `buff`, etc.).
   - **Left-Click Toggle**: Appends toggle with `+` (activates strategy, e.g. `co +aoe`).
@@ -390,7 +390,7 @@ The **Player Roster** is an interactive full-screen management interface rather 
   - **Class Archetype Tabs**: Switch between Warrior, Paladin, Hunter, Rogue, Priest, Shaman, Mage, Warlock, and Druid strategy baselines.
 
 ### 3.3 Remote Role Assignment (Command ID 102 / Role Button)
-- **Access**: Click the dedicated `Role` button at the far right of the Warband command bar.
+- **Access**: Click the dedicated `Role` button at the far right of the Retinue command bar.
 - **Controls**:
   - Fast 1-click role presets for all 9 classes:
     - **Warrior**: Protection (Tank) / Arms/Fury (Melee DPS)
@@ -404,13 +404,13 @@ The **Player Roster** is an interactive full-screen management interface rather 
     - **Druid**: Feral (Tank or Melee) / Restoration (Healer) / Balance (Boomkin)
 
 ### 3.4 Spellbook & Ability Blacklist (Command ID 69 / Group 6)
-- **Access**: Click `Spells` in Group 6, or type `/warband spells`.
+- **Access**: Click `Spells` in Group 6, or type `/retinue spells` (or `/ret spells`).
 - **Controls**:
   - Inspects all spells known by the targeted bot.
   - **Click Spell**: Adds or removes spell from bot's casting blacklist (`nc -<spell>` or `nc +<spell>`), preventing bots from casting problematic spells in specific encounters.
 
 ### 3.5 Remote Inventory & Bag Management (Command IDs 64-68 / Group 4)
-- **Access**: Click `Bags` in Group 4, or type `/warband bags`.
+- **Access**: Click `Bags` in Group 4, or type `/retinue bags` (or `/ret bags`).
 - **Controls**:
   - Inspects all 16 backpack slots and 4 bag containers of the targeted bot.
   - Modes: `View` (read-only inventory inspection), `Equip` (force equip item), `Use` (consume potion/food), `Sell` (flag for vendor sale), `Destroy` (delete trash item).
@@ -421,19 +421,20 @@ The **Player Roster** is an interactive full-screen management interface rather 
 
 | Slash Command | Arguments | Effect & Description |
 |:---|:---|:---|
-| `/warband` or `/wb` or `/unbot` | *none* | Toggles the visibility of the main Warband command bar. |
-| `/wb roster` | *none* | Opens the interactive Player Roster management window. |
-| `/wb fill` | *none* | Fills empty party slots (up to 5) from filtered roster candidates. |
-| `/wb fillraid` | *none* | Converts to raid if needed and fills up to 40 group slots. |
-| `/wb strategy` | *none* | Opens the Strategy Editor window for the currently targeted bot. |
-| `/wb spells` | *none* | Opens the Spellbook and Blacklist manager for the targeted bot. |
-| `/wb bags` | *none* | Opens the remote Bag and Inventory inspection window. |
-| `/wb debug` | *none* | Toggles verbose in-game debug chat logging for all inbound/outbound packets. |
-| `/wb capture` | *none* | Toggles packet capture logging for protocol analysis. |
-| `/wb capture clear` | *none* | Clears the in-memory packet capture history buffer. |
-| `/wb checkapi` | *none* | Audits and prints availability of Vanilla/Turtle client API functions. |
-| `/wb ask <topic>` | `<topic>` | Queries bot AI help strings for specific strategy, item, or action verbs. |
-| `/ubc <commandId>` | `<id>` | Directly executes any command ID (1-182) from macro or chat. |
+| `/retinue` or `/ret` or `/rtn` (also `/wb`, `/unbot`) | *none* | Toggles the visibility of the main Retinue command bar. |
+| `/ret roster` | *none* | Opens the interactive Player Roster management window. |
+| `/ret sync` | *none* | Manually requests live roster and status synchronization from server. |
+| `/ret fill` | *none* | Fills empty party slots (up to 5) from filtered roster candidates. |
+| `/ret fillraid` | *none* | Converts to raid if needed and fills up to 40 group slots. |
+| `/ret strategy` | *none* | Opens the Strategy Editor window for the currently targeted bot. |
+| `/ret spells` | *none* | Opens the Spellbook and Blacklist manager for the targeted bot. |
+| `/ret bags` | *none* | Opens the remote Bag and Inventory inspection window. |
+| `/ret debug` | *none* | Toggles verbose in-game debug chat logging for all inbound/outbound packets. |
+| `/ret capture` | *none* | Toggles packet capture logging for protocol analysis. |
+| `/ret capture clear` | *none* | Clears the in-memory packet capture history buffer. |
+| `/ret checkapi` | *none* | Audits and prints availability of Vanilla/Turtle client API functions. |
+| `/ret ask <topic>` | `<topic>` | Queries bot AI help strings for specific strategy, item, or action verbs. |
+| `/retcom <commandId>` or `/rc <id>` | `<id>` | Directly executes any command ID (1-182) from macro or chat (also `/ubc`). |
 
 ### 4.1 Useful Macro Examples
 

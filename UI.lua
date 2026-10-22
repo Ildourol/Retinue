@@ -136,7 +136,7 @@ end
 function UnBot:UpdateMinimapTooltip(button)
     if not button then return end
     GameTooltip:SetOwner(button, "ANCHOR_LEFT")
-    GameTooltip:AddLine(self.addonName or "Warband", 1, 0.82, 0)
+    GameTooltip:AddLine(self.addonName or "Retinue", 1, 0.82, 0)
     if UnBotFrame and UnBotFrame:IsShown() then
         GameTooltip:AddLine(UnBotL.TT.MINIMAP_HIDE, 0.65, 0.55, 0)
     else

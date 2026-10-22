@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="screens/banner.jpg" alt="Warband Playerbot Panel Banner" width="100%" />
+<img src="screens/banner.jpg" alt="Retinue Playerbot Panel Banner" width="100%" />
 
-# Warband
+# Retinue
 
 [![Interface](https://img.shields.io/badge/Interface-11200-blue.svg)]()
 [![Turtle WoW](https://img.shields.io/badge/Turtle%20WoW-1.18.1-green.svg)](https://turtlecraft.gg/)
@@ -19,11 +19,11 @@ An intuitive, graphical command panel for World of Warcraft servers running the 
 
 ## Overview
 
-**Warband** is an in-game graphical control suite built for the **Turtle WoW (1.18.1.7272)** and **Vanilla (1.12.1)** clients. It provides a visual management center to operate your playerbots without typing repetitive console commands: summon and log in characters, invite them into parties or raids, manage combat tactics, assign strategies, inspect bot inventories, cast spells, vendor trash, repair gear, and distribute loot.
+**Retinue** is an in-game graphical control suite built for the **Turtle WoW (1.18.1.7272)** and **Vanilla (1.12.1)** clients. It provides a visual management center to operate your playerbots without typing repetitive console commands: summon and log in characters, invite them into parties or raids, manage combat tactics, assign strategies, inspect bot inventories, cast spells, vendor trash, repair gear, and distribute loot.
 
 <div align="center">
 
-<img src="screens/addon.png" alt="Warband in-game panel screenshot" width="90%" />
+<img src="screens/addon.png" alt="Retinue in-game panel screenshot" width="90%" />
 
 </div>
 
@@ -51,42 +51,43 @@ An intuitive, graphical command panel for World of Warcraft servers running the 
 
 For the exhaustive reference covering all 182 actions, command IDs, dispatch scopes (Say, Whisper, Party, Target), and native TortoiseBots syntax, refer to the complete tactical manual:
 
-- [**Warband Commands & Tactical Manual**](docs/COMMANDS_GUIDE.md)
+- [**Retinue Commands & Tactical Manual**](docs/COMMANDS_GUIDE.md)
 
 ---
 
 ## Installation
 
 1. Download or clone this repository.
-2. Copy the `Warband` directory into your World of Warcraft directory under:
+2. Copy the `Retinue` directory into your World of Warcraft directory under:
    ```text
-   Interface\AddOns\Warband
+   Interface\AddOns\Retinue
    ```
-3. Ensure the folder name inside `AddOns` is named exactly `Warband` (containing `Warband.toc`, `Core.lua`, etc.).
+3. Ensure the folder name inside `AddOns` is named exactly `Retinue` (containing `Retinue.toc`, `Core.lua`, etc.).
 4. Restart your game client or reload the UI with `/console reloadui`.
 
 ---
 
 ## Usage
 
-Use `/warband` or `/unbot` to toggle the primary command bar.
+Use `/retinue` (or `/ret`) to toggle the primary command bar.
 
 ### Shortcut Commands
 
 | Slash Command | Window / Action |
 |:---|:---|
-| `/warband roster` | Toggle Account & World Bot Roster |
-| `/warband strategy` | Toggle Strategy & Behavior Editor for targeted bot |
-| `/warband spells` | Toggle Spellbook & Buffs panel for targeted bot |
-| `/warband bags` | Toggle Inventory & Bag viewer for targeted bot |
-| `/warband fill` | Automatically fill open 5-man party slots with available bots |
-| `/warband fillraid` | Convert group to raid and fill open raid slots up to 40 |
+| `/retinue roster` | Toggle Account & World Bot Roster |
+| `/retinue sync` | Manually request live roster synchronization with server |
+| `/retinue strategy` | Toggle Strategy & Behavior Editor for targeted bot |
+| `/retinue spells` | Toggle Spellbook & Buffs panel for targeted bot |
+| `/retinue bags` | Toggle Inventory & Bag viewer for targeted bot |
+| `/retinue fill` | Automatically fill open 5-man party slots with available bots |
+| `/retinue fillraid` | Convert group to raid and fill open raid slots up to 40 |
 
 ### Diagnostic Commands
 
-- `/warband debug`: Toggle internal debug message output.
-- `/warband checkapi`: Audit client API availability and environment flags.
-- `/warband capture`: Toggle server chat packet inspection.
+- `/retinue debug`: Toggle internal debug message output.
+- `/retinue checkapi`: Audit client API availability and environment flags.
+- `/retinue capture`: Toggle server chat packet inspection.
 
 ---
 

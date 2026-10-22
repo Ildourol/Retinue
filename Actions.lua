@@ -1,4 +1,4 @@
--- Warband command-group window.
+-- Retinue command-group window.
 --
 -- The command bar is a directory of command groups.  Each primary button
 -- opens one shared labelled window; clicking another group reuses that window

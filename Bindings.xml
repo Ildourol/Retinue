@@ -1,53 +1,53 @@
 <Bindings>
-  <Binding runOnUp="false" name="WARBAND_TOGGLE" header="WARBAND" default="F11">
-    if UnBot then UnBot:ToggleUI() end
+  <Binding runOnUp="false" name="RETINUE_TOGGLE" header="RETINUE" default="F11">
+    if Retinue then Retinue:ToggleUI() elseif UnBot then UnBot:ToggleUI() end
   </Binding>
-  <Binding runOnUp="false" name="WARBAND_ROSTER" default="SHIFT+O">
-    if UnBot then UnBot:ToggleRoster() end
+  <Binding runOnUp="false" name="RETINUE_ROSTER" default="SHIFT+O">
+    if Retinue then Retinue:ToggleRoster() elseif UnBot then UnBot:ToggleRoster() end
   </Binding>
-  <Binding runOnUp="false" name="WARBAND_STRATEGY">
-    if UnBot then UnBot:ShowStrategyWindow() end
+  <Binding runOnUp="false" name="RETINUE_STRATEGY">
+    if Retinue then Retinue:ShowStrategyWindow() elseif UnBot then UnBot:ShowStrategyWindow() end
   </Binding>
-  <Binding runOnUp="false" name="WARBAND_FOLLOW" default="SHIFT+F">
-    if UnBot then UnBot:RunCommand(15) end
+  <Binding runOnUp="false" name="RETINUE_FOLLOW" default="SHIFT+F">
+    if Retinue then Retinue:RunCommand(15) elseif UnBot then UnBot:RunCommand(15) end
   </Binding>
-  <Binding runOnUp="false" name="WARBAND_STAY" default="SHIFT+G">
-    if UnBot then UnBot:RunCommand(47) end
+  <Binding runOnUp="false" name="RETINUE_STAY" default="SHIFT+G">
+    if Retinue then Retinue:RunCommand(47) elseif UnBot then UnBot:RunCommand(47) end
   </Binding>
-  <Binding runOnUp="false" name="WARBAND_FLEE" default="SHIFT+H">
-    if UnBot then UnBot:RunCommand(25) end
+  <Binding runOnUp="false" name="RETINUE_FLEE" default="SHIFT+H">
+    if Retinue then Retinue:RunCommand(25) elseif UnBot then UnBot:RunCommand(25) end
   </Binding>
-  <Binding runOnUp="false" name="WARBAND_ATTACK" default="SHIFT+A">
-    if UnBot then UnBot:RunCommand(91) end
+  <Binding runOnUp="false" name="RETINUE_ATTACK" default="SHIFT+A">
+    if Retinue then Retinue:RunCommand(91) elseif UnBot then UnBot:RunCommand(91) end
   </Binding>
-  <Binding runOnUp="false" name="WARBAND_ATTACK_RTI">
-    if UnBot then UnBot:RunCommand(112) end
+  <Binding runOnUp="false" name="RETINUE_ATTACK_RTI">
+    if Retinue then Retinue:RunCommand(112) elseif UnBot then UnBot:RunCommand(112) end
   </Binding>
-  <Binding runOnUp="false" name="WARBAND_PULL" default="SHIFT+T">
-    if UnBot then UnBot:RunCommand(92) end
+  <Binding runOnUp="false" name="RETINUE_PULL" default="SHIFT+T">
+    if Retinue then Retinue:RunCommand(92) elseif UnBot then UnBot:RunCommand(92) end
   </Binding>
-  <Binding runOnUp="false" name="WARBAND_PULL_RTI">
-    if UnBot then UnBot:RunCommand(113) end
+  <Binding runOnUp="false" name="RETINUE_PULL_RTI">
+    if Retinue then Retinue:RunCommand(113) elseif UnBot then UnBot:RunCommand(113) end
   </Binding>
-  <Binding runOnUp="false" name="WARBAND_LOOT" default="SHIFT+J">
-    if UnBot then UnBot:RunCommand(24) end
+  <Binding runOnUp="false" name="RETINUE_LOOT" default="SHIFT+J">
+    if Retinue then Retinue:RunCommand(24) elseif UnBot then UnBot:RunCommand(24) end
   </Binding>
-  <Binding runOnUp="false" name="WARBAND_KITE" default="SHIFT+K">
-    if UnBot then UnBot:RunCommand(115) end
+  <Binding runOnUp="false" name="RETINUE_KITE" default="SHIFT+K">
+    if Retinue then Retinue:RunCommand(115) elseif UnBot then UnBot:RunCommand(115) end
   </Binding>
-  <Binding runOnUp="false" name="WARBAND_MARK_RTI">
-    if UnBot then UnBot:RunCommand(114) end
+  <Binding runOnUp="false" name="RETINUE_MARK_RTI">
+    if Retinue then Retinue:RunCommand(114) elseif UnBot then UnBot:RunCommand(114) end
   </Binding>
-  <Binding runOnUp="false" name="WARBAND_GUARD">
-    if UnBot then UnBot:RunCommand(143) end
+  <Binding runOnUp="false" name="RETINUE_GUARD">
+    if Retinue then Retinue:RunCommand(143) elseif UnBot then UnBot:RunCommand(143) end
   </Binding>
-  <Binding runOnUp="false" name="WARBAND_SET_GUARD">
-    if UnBot then UnBot:RunCommand(142) end
+  <Binding runOnUp="false" name="RETINUE_SET_GUARD">
+    if Retinue then Retinue:RunCommand(142) elseif UnBot then UnBot:RunCommand(142) end
   </Binding>
-  <Binding runOnUp="false" name="WARBAND_FREE">
-    if UnBot then UnBot:RunCommand(144) end
+  <Binding runOnUp="false" name="RETINUE_FREE">
+    if Retinue then Retinue:RunCommand(144) elseif UnBot then UnBot:RunCommand(144) end
   </Binding>
-  <Binding runOnUp="false" name="WARBAND_RPG">
-    if UnBot then UnBot:RunCommand(145) end
+  <Binding runOnUp="false" name="RETINUE_RPG">
+    if Retinue then Retinue:RunCommand(145) elseif UnBot then UnBot:RunCommand(145) end
   </Binding>
 </Bindings>

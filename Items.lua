@@ -1,4 +1,4 @@
--- Warband - the bot's bags.
+-- Retinue - the bot's bags.
 --
 -- Protocol, as used by the 3.3.5 addon and unchanged in mangosbot:
 --   whisper "c" -> the bot whispers back one item link per line
