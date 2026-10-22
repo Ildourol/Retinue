@@ -1,7 +1,14 @@
-# The original 3.3.5 addon this was rewritten from. Kept locally as a
-# reference for the command tables, not ours to redistribute.
+# Reference files
 _original_335/
 
-# Exclude agent definitions and workspace tracking
+# Exclude agent definitions, tests, and workspace tracking
 AGENTS.md
 .agents/
+.codex/
+.gemini/
+.vscode/
+scratch/
+tests/
+test/
+*.tmp
+*.log

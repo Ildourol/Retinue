@@ -4,14 +4,17 @@
 
 # Retinue
 
+**The Definitive Companion & Playerbot Tactical Suite for World of Warcraft (Vanilla 1.12.1 / Turtle WoW 1.18.1)**
+
 [![Interface](https://img.shields.io/badge/Interface-11200-blue.svg)]()
 [![Turtle WoW](https://img.shields.io/badge/Turtle%20WoW-1.18.1-green.svg)](https://turtlecraft.gg/)
 [![Target Core](https://img.shields.io/badge/Core-TortoiseBots%20%2F%20vMaNGOS-orange.svg)]()
+[![GitHub Repo](https://img.shields.io/badge/GitHub-Ildourol%2FRetinue-blue?logo=github)](https://github.com/Ildourol/Retinue)
 [![License](https://img.shields.io/badge/License-GPL%20v2-lightgrey.svg)](LICENSE)
 
-An intuitive, graphical command panel for World of Warcraft servers running the TortoiseBots engine and vMaNGOS.
+An elegant, high-performance in-game graphical control suite built specifically for World of Warcraft servers running the **TortoiseBots** engine and **vMaNGOS**.
 
-[Overview](#overview) • [Features](#features) • [Commands Guide](#commands-guide) • [Installation](#installation) • [Usage](#usage) • [Compatibility](#compatibility) • [Credits](#credits)
+[Overview](#overview) • [Core Features](#core-features) • [Quick Start](#quick-start) • [Interactive Windows](#interactive-windows) • [Slash Commands](#slash-commands) • [Macro Examples](#macro-examples) • [Commands Guide](docs/COMMANDS_GUIDE.md)
 
 </div>
 
@@ -19,7 +22,7 @@ An intuitive, graphical command panel for World of Warcraft servers running the 
 
 ## Overview
 
-**Retinue** is an in-game graphical control suite built for the **Turtle WoW (1.18.1.7272)** and **Vanilla (1.12.1)** clients. It provides a visual management center to operate your playerbots without typing repetitive console commands: summon and log in characters, invite them into parties or raids, manage combat tactics, assign strategies, inspect bot inventories, cast spells, vendor trash, repair gear, and distribute loot.
+**Retinue** replaces cumbersome console typing and chat macro spam with a streamlined, responsive graphical interface. Whether assembling a 5-player dungeon squad or mobilizing a 40-player raid, Retinue gives you total command over your bot companions: summoning alts, managing party formations, toggling combat tactics, inspecting remote bags, assigning class roles, casting buffs, and trading loot in real time.
 
 <div align="center">
 
@@ -29,83 +32,156 @@ An intuitive, graphical command panel for World of Warcraft servers running the 
 
 ---
 
-## Features
+## Core Features
 
-- **Primary Command Bar**: Ten categorized tactical groups spanning 182 comprehensive actions (Combat, Movement, Spacing, Formations, Stances, RTI Targets, Utility, Gearing, and Maintenance). Clicking any category opens a dedicated window. Selecting another category reuses the existing frame to eliminate UI clutter.
-- **Persistent Favorites Strip**: Right-click any command button across the panel to pin it to your persistent Favorites bar directly above the main panel.
-- **Player Roster & Auto-Fill**:
-  - Live character roster supporting both account alts (`.bot roster` via TBM protocol) and active world instances (`.bot list`).
-  - Real-time search filter with instant character lookup and quick `+ Add` registration.
-  - One-click friendly target addition (`+ Target`).
-  - Dual-action party invitation pipeline executing native client packets (`InviteByName`) and TortoiseBots engine commands (`.bot invite`) with asynchronous spawn watchers and automatic raid conversion.
-  - One-click party (`Fill group`) and raid (`Fill raid`) deployment.
-- **Strategy & Behavior Management**: Dynamically queries the bot's supported strategies from the server engine, offering category toggles (`+`, `-`, `~`) for combat, non-combat, and reaction states.
-- **Spells & Buffs**: Visual ability catalog categorized by spell family (Auras, Blessings, Shouts, Aspects, Seals, Totems) with one-click group rebuffing.
-- **Inventory & Bags**: Visual item grid with authentic quality borders, item upgrade flags, and direct Equip, Use, Trade, and Sell interactions.
-- **Role Assignment**: Rapid class-based role bar. Left-click assigns primary roles (Tank / Healer) and right-click assigns secondary roles (DPS) across all group bots simultaneously.
-- **Minimap Quick-Toggle**: Draggable 360-degree minimap button with live tooltip information.
+### ⚔️ Tactical Command Bar
+- **10 Categorized Action Groups**: Access 182 native companion commands (Combat, Movement, Spacing, Formations, Stances, RTI Targets, Utility, Gearing, and Maintenance).
+- **Zero Frame Clutter**: Clicking any category opens a dedicated modal; selecting another group cleanly reuses the window without stacking multiple frames on your screen.
+
+### ⭐ Persistent 10-Slot Quick Favorites
+- Pin your most-used commands directly to the top row of the Retinue bar.
+- **Right-Click** any button across any modal to pin/unpin it with a visual star (`*`).
+- **Expanded Drawer (`>`)**: Supports unlimited favorited actions with mouse-wheel scrolling.
+
+### 👥 Interactive Player Roster & Deployment
+- **Dual Server Discovery**: Seamlessly queries account alts via structured TBM protocol (`.bot roster`) and active world instances (`.bot list`).
+- **Live Search & Filter**: Real-time substring search with instant `+ Add "<Name>"` fallback for unregistered bots.
+- **`+ Target` Fast Add**: One-click addition of friendly players or bots to your persistent roster cache.
+- **One-Click Group Fill**: Automatically fill free slots in 5-man parties (`Fill group`) or 40-man raids (`Fill raid`) from filtered candidates.
+- **Automated Raid Conversion**: Automatically converts parties to raids when inviting 6+ members.
+- **Quiet Sync Architecture**: Server roster updates process silently in the background without polluting chat with repeated sync alerts.
+
+### 🧠 Dynamic Strategy & Behavior Editor
+- Queries live AI strategies supported directly by the targeted bot from the server engine.
+- Supports native TortoiseBots strategy operators:
+  - `+` (Enable / Add strategy)
+  - `-` (Disable / Remove strategy)
+  - `~` (Toggle active state with a single click)
+- Dedicated archetype tabs for all 9 classes (Warrior, Paladin, Hunter, Rogue, Priest, Shaman, Mage, Warlock, Druid).
+
+### 🎒 Remote Inventory & Bag Management
+- Inspect all 16 backpack slots and 4 bag containers for the selected bot.
+- Interactive action modes:
+  - **View**: Inspect items with authentic item quality borders and tooltips.
+  - **Equip**: Force the bot to equip selected gear.
+  - **Use**: Direct the bot to consume food, drinks, bandages, or potions.
+  - **Sell**: Flag junk and inventory items for vendor sale.
+  - **Destroy**: Purge unwanted items from bot bags.
+
+### 🛡️ Instant Role Assignment
+- Fast 1-click role bar for your entire group:
+  - **Left-Click**: Assigns primary roles (Protection Tank / Holy-Resto Healer).
+  - **Right-Click**: Assigns secondary roles (DPS / Utility).
+
+### 🔮 Spellbook & Buff Management
+- Browse abilities known by the targeted companion.
+- **Click to Blacklist**: Prevents bots from casting unwanted or situational spells in specific raid encounters (`nc -<spell>` / `nc +<spell>`).
+
+### 🔘 360° Draggable Minimap Button
+- Draggable minimap button with tooltip metrics and left-click bar toggle.
 
 ---
 
-## Commands Guide
+## Quick Start
 
-For the exhaustive reference covering all 182 actions, command IDs, dispatch scopes (Say, Whisper, Party, Target), and native TortoiseBots syntax, refer to the complete tactical manual:
-
-- [**Retinue Commands & Tactical Manual**](docs/COMMANDS_GUIDE.md)
-
----
-
-## Installation
-
-1. Download or clone this repository.
-2. Copy the `Retinue` directory into your World of Warcraft directory under:
-   ```text
-   Interface\AddOns\Retinue
+### Installation
+1. Download or clone this repository:
+   ```bash
+   git clone https://github.com/Ildourol/Retinue.git
    ```
-3. Ensure the folder name inside `AddOns` is named exactly `Retinue` (containing `Retinue.toc`, `Core.lua`, etc.).
-4. Restart your game client or reload the UI with `/console reloadui`.
+2. Copy the `Retinue` folder into your World of Warcraft addons directory:
+   ```text
+   World of Warcraft\Interface\AddOns\Retinue\
+   ```
+3. Verify that `Retinue.toc` is located directly inside `Interface\AddOns\Retinue\Retinue.toc`.
+4. Launch your game client or run `/console reloadui`.
 
 ---
 
-## Usage
+## Interactive Windows
 
-Use `/retinue` (or `/ret`) to toggle the primary command bar.
+| Window | Access Shortcut | Purpose |
+|:---|:---|:---|
+| **Command Bar** | `/retinue` or `/ret` | Main tactical control bar with 10 command groups |
+| **Player Roster** | `/ret roster` | View alts, invite/uninvite bots, fill party/raid, search bots |
+| **Strategy Editor** | `/ret strategy` | View and toggle AI combat and non-combat strategies |
+| **Spellbook** | `/ret spells` | Inspect bot spells and toggle casting blacklists |
+| **Bags & Items** | `/ret bags` | Inspect bot inventory, force equip gear, use consumables, vendor items |
+| **Role Bar** | Role Button on bar | Rapidly set Tank, Healer, and DPS presets across all party bots |
 
-### Shortcut Commands
+---
 
-| Slash Command | Window / Action |
-|:---|:---|
-| `/retinue roster` | Toggle Account & World Bot Roster |
-| `/retinue sync` | Manually request live roster synchronization with server |
-| `/retinue strategy` | Toggle Strategy & Behavior Editor for targeted bot |
-| `/retinue spells` | Toggle Spellbook & Buffs panel for targeted bot |
-| `/retinue bags` | Toggle Inventory & Bag viewer for targeted bot |
-| `/retinue fill` | Automatically fill open 5-man party slots with available bots |
-| `/retinue fillraid` | Convert group to raid and fill open raid slots up to 40 |
+## Slash Commands
 
-### Diagnostic Commands
+Retinue provides intuitive, short commands as well as legacy aliases for backwards compatibility:
 
-- `/retinue debug`: Toggle internal debug message output.
-- `/retinue checkapi`: Audit client API availability and environment flags.
-- `/retinue capture`: Toggle server chat packet inspection.
+| Slash Command | Arguments | Description |
+|:---|:---|:---|
+| `/retinue` or `/ret` or `/rtn` | *none* | Toggle the primary Retinue command bar |
+| `/ret roster` | *none* | Open the Player Roster window |
+| `/ret sync` | *none* | Manually synchronize roster states with the server |
+| `/ret strategy` | *none* | Open the Strategy Editor for your current target |
+| `/ret spells` | *none* | Open the remote Spellbook & Buffs panel |
+| `/ret bags` | *none* | Open the remote Bag & Inventory inspection grid |
+| `/ret fill` | *none* | Auto-fill open party slots (up to 5) with filtered bots |
+| `/ret fillraid` | *none* | Auto-convert to raid and fill open slots (up to 40) |
+| `/retcom <id>` or `/rc <id>` | `<id>` | Execute any action ID (1–182) directly via macro |
+| `/ret debug` | *none* | Toggle verbose event logging in chat |
+| `/ret capture` | *none* | Toggle packet capture stream inspection |
+
+*(Legacy `/warband`, `/wb`, `/unbot`, and `/ubc <id>` aliases remain fully supported).*
+
+---
+
+## Macro Examples
+
+Create custom macros in your client for rapid tactical execution:
+
+#### 🚨 Emergency Stop & Regroup
+```text
+/rc 70
+/rc 163
+```
+*Instantly halts combat, clears bot action queues, and sprints all companions directly to your position.*
+
+#### 🛡️ Tank Pull & Hold
+```text
+/rc 92
+```
+*Orders the group tank to engage your current target with ranged pull while party DPS holds damage.*
+
+#### 🏃 Retreat & Flee
+```text
+/rc 25
+```
+*Commands all bots to break engagement and sprint away from danger.*
+
+#### ⚔️ Focus Attack RTI Skull
+```text
+/rc 112
+```
+*Directs all bot damage onto the Raid Target Icon (RTI) marked target.*
+
+---
+
+## Comprehensive Command Manual
+
+For the complete reference covering all 182 actions, command IDs, dispatch scopes (`SAY`, `WHISPER`, `PARTY`, `TARGET`), and engine syntax, consult the tactical guide:
+
+📖 [**Retinue Commands & Tactical Manual**](docs/COMMANDS_GUIDE.md)
 
 ---
 
 ## Compatibility
 
-### Client Environment (Turtle WoW 1.18.1 vs Vanilla 1.12.1)
-
-- **Item Textures**: Seamlessly handles Turtle WoW's extended `GetItemInfo` signature (returning textures at index 9) with graceful fallback to standard 1.12 indices and AtlasLoot caches on vanilla clients.
-- **Lua 5.0 Compliance**: Crafted strictly for the classic Lua 5.0 engine (`table.getn`, `string.find`, `string.gsub`, global frame references `this`, `event`, `arg1`).
-- **Safe Queue Throttle**: Centralized command pump (`QUEUE_DELAY = 0.4s`) with frame-safe elapsed calculations prevents client-side chat flooding and disconnects when dispatching bulk orders.
-
-### Server Engine Integration
-
-Engineered specifically for **TortoiseBots** on **Turtle WoW vMaNGOS** (client 1.18.1.7272). Supports the structured `TBM:` protocol lines (`TBM:ROSTER_BEGIN`, `TBM:ROSTER`, `TBM:ROSTER_END`, `TBM:ALTBOTS`) while maintaining full backwards compatibility with legacy `mangosbot` syntax (`.bot list`, `.bot add`, `.bot remove`).
+- **Turtle WoW Classic+ (1.18.1)**: Full compatibility with extended item queries (`GetItemInfo`), custom zones, and native engine features.
+- **Vanilla WoW (1.12.1)**: Pure Lua 5.0 compliance (`table.getn`, `math.mod`, global frame event handling).
+- **TortoiseBots Subsystem**: Native support for modern `TBM:` protocol lines (`TBM:ROSTER_BEGIN`, `TBM:ROSTER`, `TBM:ROSTER_END`, `TBM:ALTBOTS`) and legacy `mangosbot` syntax (`.bot list`, `.bot add`, `.bot remove`).
 
 ---
 
-## Credits
+## License & Credits
 
-- Originally rewritten for 1.12 based on the concepts from the 3.3.5 addon **UnBot**.
-- Modernized, audited, and maintained for **Turtle WoW Classic+ (1.18.1)** and the **TortoiseBots** ecosystem.
+- Licensed under [GPL v2](LICENSE).
+- Originally based on concepts from the 3.3.5 addon *UnBot*.
+- Re-architected, optimized, and maintained for **Turtle WoW** and the **TortoiseBots** engine.
