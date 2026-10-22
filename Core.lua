@@ -132,7 +132,6 @@ function UnBot:RegisterSlashCommands()
     end
     SlashCmdList["UNBOTCOM"] = SlashCmdList["RETINUECOM"]
 end
-end
 
 function UnBot:ToggleUI()
     if not UnBotFrame then return end
