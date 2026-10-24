@@ -5,9 +5,9 @@
 ## SavedVariables: RetinueConfig, UnBotConfig
 
 Localization.lua
+Core.lua
 Data.lua
 CatalogData.lua
-Core.lua
 Actions.lua
 UI.lua
 Roster.lua

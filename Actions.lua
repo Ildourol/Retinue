@@ -4,6 +4,10 @@
 -- opens one shared labelled window; clicking another group reuses that window
 -- instead of leaving a collection of floating windows open.
 
+Retinue = Retinue or {}
+retinue = Retinue
+UnBot = Retinue
+
 local ACTION_BUTTON_WIDTH  = 150
 local ACTION_BUTTON_HEIGHT = 24
 local ACTION_MAX_COLS      = 3
@@ -295,13 +299,27 @@ function UnBot:GetActionButton(index)
                                           "OVERLAY")
     label:SetFont(UnBotFont, 10)
     label:SetPoint("LEFT", icon, "RIGHT", 4, 0)
-    label:SetPoint("RIGHT", button, "RIGHT", -3, 0)
+    label:SetPoint("RIGHT", button, "RIGHT", -16, 0)
     label:SetJustifyH("LEFT")
     label:SetTextColor(0.9, 0.9, 0.9)
     button.label = label
 
+    local lamp = button:CreateTexture("UnBotActionLamp"..index, "OVERLAY")
+    lamp:SetWidth(10)
+    lamp:SetHeight(10)
+    lamp:SetPoint("RIGHT", button, "RIGHT", -4, 0)
+    lamp:Hide()
+    button.lamp = lamp
+
     button:SetScript("OnClick", function()
         if not this.commandId then return end
+        if this.commandId == 92 and arg1 == "RightButton" then
+            UnBot:CyclePullDelay()
+            return
+        elseif this.commandId == 157 and arg1 == "RightButton" then
+            UnBot:CyclePullbackDelay()
+            return
+        end
         if arg1 == "RightButton" then
             UnBot:ToggleFavorite(this.commandId)
         else
@@ -540,8 +558,36 @@ function UnBot:RefreshActionGroup(groupIndex)
                 if type(self.IsFavorite) == "function" and self:IsFavorite(entry.id) then
                     label = "* "..label
                 end
+                if entry.id == 92 then
+                    local pDelay = (RetinueConfig and RetinueConfig.pullDelay) or 10
+                    label = label .. " (" .. pDelay .. "s)"
+                elseif entry.id == 157 then
+                    local pbDelay = (RetinueConfig and RetinueConfig.pullbackDelay) or 3
+                    label = label .. " (" .. pbDelay .. "s)"
+                end
                 button.label:SetText(label)
                 button.label:SetTextColor(0.9, 0.9, 0.9)
+
+                if button.lamp then
+                    if entry.id == 160 or entry.id == 161 or entry.id == 24 then
+                        local key = (entry.id == 160 and "aoe") or (entry.id == 161 and "autocc") or "loot"
+                        local state = self:GetPartyConsensus(key)
+                        if state == "on" then
+                            button.lamp:SetTexture("Interface\\RAIDFRAME\\Raid-ReadyCheck-Approved")
+                            button.lamp:Show()
+                        elseif state == "off" then
+                            button.lamp:SetTexture("Interface\\RAIDFRAME\\Raid-ReadyCheck-NotReady")
+                            button.lamp:Show()
+                        elseif state == "mixed" then
+                            button.lamp:SetTexture("Interface\\RAIDFRAME\\Raid-ReadyCheck-Waiting")
+                            button.lamp:Show()
+                        else
+                            button.lamp:Hide()
+                        end
+                    else
+                        button.lamp:Hide()
+                    end
+                end
                 button:Show()
             end
         end
@@ -556,4 +602,39 @@ end
 
 function UnBot:HideActions()
     self:HideActionGroupWindows()
+end
+
+function UnBot:CyclePullDelay()
+    if not RetinueConfig then RetinueConfig = {} end
+    local cur = RetinueConfig.pullDelay or 10
+    local nextVal = cur + 5
+    if nextVal > 30 then nextVal = 5 end
+    RetinueConfig.pullDelay = nextVal
+    self:Message("Pull delay set to " .. nextVal .. "s")
+    if self.actionGroupFrame and self.actionGroupFrame:IsShown() then
+        self:RefreshActionGroup(1)
+    end
+end
+
+function UnBot:CyclePullbackDelay()
+    if not RetinueConfig then RetinueConfig = {} end
+    local cur = RetinueConfig.pullbackDelay or 3
+    local nextVal = cur + 2
+    if nextVal > 15 then nextVal = 1 end
+    RetinueConfig.pullbackDelay = nextVal
+    self:Message("Pullback delay set to " .. nextVal .. "s")
+    if self.actionGroupFrame and self.actionGroupFrame:IsShown() then
+        self:RefreshActionGroup(1)
+    end
+end
+
+function UnBot:GetPartyConsensus(key)
+    local on, off = false, false
+    for name, st in pairs(self.botStates or {}) do
+        if st[key] == "on" then on = true elseif st[key] == "off" then off = true end
+    end
+    if on and off then return "mixed" end
+    if on then return "on" end
+    if off then return "off" end
+    return nil
 end

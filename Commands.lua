@@ -2,6 +2,10 @@
 -- Everything else is dispatched generically by UnBot:RunCommand from the
 -- UnBotExecuteCommand / UnBotCommandType tables.
 
+Retinue = Retinue or {}
+retinue = Retinue
+UnBot = Retinue
+
 --=========================================================================--
 --  Group iteration helpers
 --=========================================================================--
@@ -68,7 +72,13 @@ local function ServerCommandOnTarget(id)
         UnBot:Message(UnBotL.MSG.NO_TARGET)
         return
     end
-    SendChatMessage(UnBotExecuteCommand[id].." "..name, "SAY")
+    local raw = UnBotExecuteCommand[id] .. " " .. name
+    if string.find(raw, "^%.bot%s+") then
+        local sub = string.gsub(raw, "^%.bot%s+", "")
+        UnBot:SendBotCommand(sub)
+    else
+        SendChatMessage(raw)
+    end
 end
 
 UnBot:RegisterHandler(2,   ServerCommandOnTarget)   -- autogear bot
@@ -132,7 +142,8 @@ end)
 
 -- [70] Tell the group to stop combat and clear queues
 UnBot:RegisterHandler(70, function()
-    SendChatMessage(".bot action stop", "SAY")
+    UnBot:SendBotCommand("action stop")
+    SendChatMessage("combatstop", "PARTY")
     UnBot:Message("Sent combat stop to party bots")
 end)
 
@@ -148,10 +159,46 @@ end)
 
 -- [80] Server-side ready check
 UnBot:RegisterHandler(80, function()
-    SendChatMessage(".bot action ready", "SAY")
+    UnBot:SendBotCommand("action ready")
     if DoReadyCheck then
         DoReadyCheck()
     end
+end)
+
+-- [81] Make bots drink
+UnBot:RegisterHandler(81, function()
+    local target = UnitName("target")
+    local checkValid = IsValidCharacterName or (UnBot and UnBot.IsValidCharacterName)
+    if target and (not checkValid or checkValid(target)) and (UnitInParty("target") or UnitInRaid("target")) then
+        SendChatMessage("d drink", "WHISPER", nil, target)
+    else
+        SendChatMessage("d drink", "PARTY")
+    end
+    UnBot:SendBotCommand("action drink")
+end)
+
+-- [99] Make bots eat
+UnBot:RegisterHandler(99, function()
+    local target = UnitName("target")
+    local checkValid = IsValidCharacterName or (UnBot and UnBot.IsValidCharacterName)
+    if target and (not checkValid or checkValid(target)) and (UnitInParty("target") or UnitInRaid("target")) then
+        SendChatMessage("d food", "WHISPER", nil, target)
+    else
+        SendChatMessage("d food", "PARTY")
+    end
+    UnBot:SendBotCommand("action eat")
+end)
+
+-- [103] Use nearby world object (chests, levers, herbs, ore)
+UnBot:RegisterHandler(103, function()
+    local target = UnitName("target")
+    local checkValid = IsValidCharacterName or (UnBot and UnBot.IsValidCharacterName)
+    if target and (not checkValid or checkValid(target)) and (UnitInParty("target") or UnitInRaid("target")) then
+        SendChatMessage("d use go", "WHISPER", nil, target)
+    else
+        SendChatMessage("d use go", "PARTY")
+    end
+    UnBot:SendBotCommand("action loot")
 end)
 
 -- [88] Add every group member to the friends list.
@@ -190,3 +237,64 @@ end)
 UnBot:RegisterHandler(77, function()
     UnBot:RequestServerRoster(true)
 end)
+
+-- [92] Tank pull with configurable DPS delay stepper
+UnBot:RegisterHandler(92, function()
+    local delay = (RetinueConfig and RetinueConfig.pullDelay) or 10
+    if UnBot.HasServerCapability and UnBot:HasServerCapability("pull-seconds") then
+        UnBot:SendBotCommand("action pull " .. delay .. " ranged")
+    else
+        UnBot:SendBotCommand("action pull 10 ranged")
+    end
+end)
+
+-- [157] Tank pullback with configurable join delay stepper
+UnBot:RegisterHandler(157, function()
+    local delay = (RetinueConfig and RetinueConfig.pullbackDelay) or 3
+    if UnBot.HasServerCapability and UnBot:HasServerCapability("pull-seconds") then
+        UnBot:SendBotCommand("action pullback " .. delay .. " ranged")
+    else
+        UnBot:SendBotCommand("action pullback 5 ranged")
+    end
+end)
+
+-- [170] Raid Tankface
+UnBot:RegisterHandler(170, function()
+    UnBot:SendBotCommand("action raid tankface")
+end)
+
+-- [171] Raid Douse runes
+UnBot:RegisterHandler(171, function()
+    UnBot:SendBotCommand("action raid douse")
+end)
+
+-- [172] Raid custom tactics toggle
+UnBot:RegisterHandler(172, function()
+    if UnBot.raidCustomState == "on" then
+        UnBot:SendBotCommand("action raid custom off")
+        UnBot.raidCustomState = "off"
+    else
+        UnBot:SendBotCommand("action raid custom on")
+        UnBot.raidCustomState = "on"
+    end
+    if UnBot.RefreshRaidView then UnBot:RefreshRaidView() end
+end)
+
+-- [183] Raid custom off
+UnBot:RegisterHandler(183, function()
+    UnBot:SendBotCommand("action raid custom off")
+    UnBot.raidCustomState = "off"
+    if UnBot.RefreshRaidView then UnBot:RefreshRaidView() end
+end)
+
+-- [184] Raid custom status
+UnBot:RegisterHandler(184, function()
+    UnBot:SendBotCommand("action raid custom status")
+end)
+
+-- [185] Raid boss tactics check
+UnBot:RegisterHandler(185, function()
+    UnBot.raidBotTactics = {}
+    UnBot:SendBotCommand("action raid status")
+end)
+

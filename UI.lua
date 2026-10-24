@@ -1,3 +1,7 @@
+Retinue = Retinue or {}
+retinue = Retinue
+UnBot = Retinue
+
 -- UnBot UI - Vanilla 1.12
 -- Script handlers use the globals `this` and `arg1`, never parameters.
 

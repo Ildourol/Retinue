@@ -35,7 +35,10 @@ An elegant, high-performance in-game graphical control suite built specifically 
 ## Core Features
 
 ### ⚔️ Tactical Command Bar
-- **10 Categorized Action Groups**: Access 182 native companion commands (Combat, Movement, Spacing, Formations, Stances, RTI Targets, Utility, Gearing, and Maintenance).
+- **10 Categorized Action Groups**: Access 185 native companion commands (Combat, Movement, Spacing, Formations, Stances, RTI Targets, Utility, Gearing, and Maintenance).
+- **Stepped Pull Timers**: Direct delay steppers on Pull (`/rc 92`: 0s, 1s, 2s, 3s, 5s) and Pullback (`/rc 157`: 5s, 8s, 10s, 15s, 20s).
+- **Consensus Status Lamps**: Live party consensus indicator lamps (Green = all on, Red = all off, Amber = mixed) on AoE, Auto CC, and Loot actions.
+- **Direct Force Rest Actions**: Dual-dispatch on Drink (81), Eat (99), and Use GO / Loot (103) sending direct vMaNGOS force actions (`d drink`, `d food`, `d use go`) and `.bot action ...` with quiet console command dispatch and zero chat bubble leakage.
 - **Zero Frame Clutter**: Clicking any category opens a dedicated modal; selecting another group cleanly reuses the window without stacking multiple frames on your screen.
 
 ### ⭐ Persistent 10-Slot Quick Favorites
@@ -43,31 +46,26 @@ An elegant, high-performance in-game graphical control suite built specifically 
 - **Right-Click** any button across any modal to pin/unpin it with a visual star (`*`).
 - **Expanded Drawer (`>`)**: Supports unlimited favorited actions with mouse-wheel scrolling.
 
-### 👥 Interactive Player Roster & Deployment
-- **Dual Server Discovery**: Seamlessly queries account alts via structured TBM protocol (`.bot roster`) and active world instances (`.bot list`).
-- **Live Search & Filter**: Real-time substring search with instant `+ Add "<Name>"` fallback for unregistered bots.
-- **`+ Target` Fast Add**: One-click addition of friendly players or bots to your persistent roster cache.
-- **One-Click Group Fill**: Automatically fill free slots in 5-man parties (`Fill group`) or 40-man raids (`Fill raid`) from filtered candidates.
-- **Automated Raid Conversion**: Automatically converts parties to raids when inviting 6+ members.
-- **Quiet Sync Architecture**: Server roster updates process silently in the background without polluting chat with repeated sync alerts.
+### 👥 Interactive 5-View Roster Hub
+- **Tab 1: [Account]**: View and manage personal account alts, summon/invite/delete, live search, `+ Target` fast add, and sequential batch queue with automatic raid conversion.
+- **Tab 2: [Guild]**: Live view of guild-claimed wandering bots (`TBM:CLAIMED_*`) with Level 60 `[Locked]` gold badges vs Level 1-59 `[Leveling]` green badges, role cycling, and safe release confirmation modal.
+- **Tab 3: [Party]**: 5-member live squad card view displaying player master role selector, bot health/mana bars, assigned CC marks, role cycle buttons, and 1-click Gear Inspector shortcuts.
+- **Tab 4: [Raid]**: Boss tactics panel with `Tank face away` (`raid tankface`), `Douse runes` (`raid douse`), `Custom tactics: on/off` toggle switch with status lamp, and `Check bots` (`raid status`) summary.
+- **Tab 5: [CC Marks]**: Visual crowd control assignment matrix covering all 8 Raid Target Icons (Star, Circle, Diamond, Triangle, Moon, Square, Cross, Skull) with bot assignment and clear controls.
 
-### 🧠 Dynamic Strategy & Behavior Editor
-- Queries live AI strategies supported directly by the targeted bot from the server engine.
-- Supports native TortoiseBots strategy operators:
-  - `+` (Enable / Add strategy)
-  - `-` (Disable / Remove strategy)
-  - `~` (Toggle active state with a single click)
-- Dedicated archetype tabs for all 9 classes (Warrior, Paladin, Hunter, Rogue, Priest, Shaman, Mage, Warlock, Druid).
+### 🧠 Dynamic Strategy & Bot Behaviour Editor
+- **4 Navigation Modes**: `[Strategies]` (parallel dual-column overview), `[Combat]` (`co`), `[Non-combat]` (`nc`), and dedicated `[Behaviour]` (`behavior`).
+- **Parallel Dual-Column Overview**: Side-by-side 242px columns for Combat and Non-combat strategies with independent scroll steppers and mousewheel scrolling.
+- **Soft Muted Status Indicators**: Calm, non-intense green (`|cff40a040●|r`, `[ON]`) and red (`|cffa04040○|r`, `[OFF]`) indicators to eliminate visual fatigue.
+- **Dynamic Multi-Channel Dispatch**: Strategy toggles deliver intelligently via WHISPER (when bot is targeted or inspected), PARTY (when in a group), or SAY fallback with optimistic state updating.
+- **Dedicated Behaviour Options Panel**: Toggle core combat and survival habits (Loot corpses, AoE spells, Auto CC, Save mana, Offensive Cooldowns, Threat throttling, Potions, Spread out, Mimic consumables) with live green `[ ON ]` vs grey `[ OFF ]` status lamps and real-time state querying.
+- **Dual-Dispatch Command Engine**: Simultaneously dispatches canonical TortoiseBots commands (`.bot behavior <bot> <key> <state>`) and companion whisper strategy verbs (`co +/-...`, `nc +/-...`) for seamless vMaNGOS bot reaction.
+- **Active State Highlights**: Strategy rows show green `● [ON]` indicator lamps for active combat and non-combat strategies.
+- **Role Presets**: 1-click archetype role presets for all 9 classes (Warrior, Paladin, Hunter, Rogue, Priest, Shaman, Mage, Warlock, Druid).
 
-### 🎒 Remote Inventory & Bag Management
-- Inspect all 16 backpack slots and 4 bag containers for the selected bot.
-- Interactive action modes:
-  - **View**: Inspect items with authentic item quality borders and tooltips.
-  - **Equip**: Force the bot to equip selected gear.
-  - **Use**: Direct the bot to consume food, drinks, bandages, or potions.
-  - **Sell**: Flag junk and inventory items for vendor sale.
-  - **Destroy**: Purge unwanted items from bot bags.
-  - **Catalog Shortcut**: Jump directly into the 26k+ Item Catalog & Spawner with one click.
+### 🥋 Bot Inspector (Full-Body Paperdoll & Bags)
+- **Tab 1: [Gear]**: Centered 3D animated `PlayerModel` paperdoll with full-body scaling (0.35, head-to-toe), interactive mouse drag 360° horizontal rotation, and mouse wheel zoom scaling (0.15 to 1.20). Displays 19 equipment slots, authentic quality borders, durability status bar, item tooltips, and equipped money tally.
+- **Tab 2: [Bags]**: 56-slot remote bag container grid, item upgrade indicator badges (`+`), "Give to me" trade sequencing, direct "Trade" initiation, and Item Catalog jump.
 
 ### 📦 Item Catalog & Spawner (Turtle WoW 1.18.1 / Vanilla 1.12.1)
 - Browse, filter, and search **26,542 authentic Turtle WoW and Vanilla items** (levels 1-60).
@@ -112,11 +110,11 @@ An elegant, high-performance in-game graphical control suite built specifically 
 
 | Window | Access Shortcut | Purpose |
 |:---|:---|:---|
-| **Command Bar** | `/retinue` or `/ret` | Main tactical control bar with 10 command groups |
-| **Player Roster** | `/ret roster` | View alts, invite/uninvite bots, fill party/raid, search bots |
-| **Strategy Editor** | `/ret strategy` | View and toggle AI combat and non-combat strategies |
+| **Command Bar** | `/retinue` or `/ret` | Main tactical control bar with 10 command groups, pull steppers, and consensus lamps |
+| **Roster Hub** | `/ret roster` | 5-tab deployment hub: Account alts, Guild claimed bots, Party cards, Raid tactics, CC Marks |
+| **Bot Inspector** | `/ret bags` or `/ret inspect` | 2-tab inspector: Full-body 3D Gear Paperdoll and 56-slot Bags grid |
+| **Strategy Editor** | `/ret strategy` | 4-tab hub: Dual-column Strategies, Combat, Non-combat, and Bot Behaviour |
 | **Spellbook** | `/ret spells` | Inspect bot spells and toggle casting blacklists |
-| **Bags & Items** | `/ret bags` | Inspect bot inventory, force equip gear, use consumables, vendor items |
 | **Role Bar** | Role Button on bar | Rapidly set Tank, Healer, and DPS presets across all party bots |
 | **Item Catalog** | `/ret catalog` or bar | Browse 26,542 items, filter by slot/rarity/level, 1-click spawn |
 
@@ -129,15 +127,15 @@ Retinue provides intuitive, short commands as well as legacy aliases for backwar
 | Slash Command | Arguments | Description |
 |:---|:---|:---|
 | `/retinue` or `/ret` or `/rtn` | *none* | Toggle the primary Retinue command bar |
-| `/ret roster` | *none* | Open the Player Roster window |
+| `/ret roster` | *none* | Open the 5-tab Roster Hub (Account, Guild, Party, Raid, CC Marks) |
 | `/ret sync` | *none* | Manually synchronize roster states with the server |
 | `/ret strategy` | *none* | Open the Strategy Editor for your current target |
 | `/ret spells` | *none* | Open the remote Spellbook & Buffs panel |
-| `/ret bags` | *none* | Open the remote Bag & Inventory inspection grid |
+| `/ret bags` or `/ret inspect` | *none* | Open the Bot Inspector (Paperdoll, Bags, Behaviour) |
 | `/ret catalog` | *none* | Open the 26k+ Item Catalog & Spawner browser |
 | `/ret fill` | *none* | Auto-fill open party slots (up to 5) with filtered bots |
 | `/ret fillraid` | *none* | Auto-convert to raid and fill open slots (up to 40) |
-| `/retcom <id>` or `/rc <id>` | `<id>` | Execute any action ID (1–182) directly via macro |
+| `/retcom <id>` or `/rc <id>` | `<id>` | Execute any action ID (1–185) directly via macro |
 | `/ret debug` | *none* | Toggle verbose event logging in chat |
 | `/ret capture` | *none* | Toggle packet capture stream inspection |
 

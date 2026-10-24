@@ -1,6 +1,10 @@
 -- UnBot Data - command tables recovered from the 3.3.5 addon.
 -- These are the heart of the addon: what each command sends and how.
 
+Retinue = Retinue or {}
+retinue = Retinue
+UnBot = Retinue
+
 -- Chat text sent for each command id. Empty string = handled by a special
 -- handler in Commands.lua, or intentionally disabled upstream.
 UnBotExecuteCommand = {
@@ -62,7 +66,7 @@ UnBotExecuteCommand = {
     [76] = "stay",
     [77] = ".bot roster",
     [80] = ".bot action ready",                 -- server-side ready check (HP, mana, buffs)
-    [81] = ".bot action rest",                  -- drink & food rest order
+    [81] = "d drink",                           -- drink order (party bots rest and drink)
     [82] = "",                                  -- bulk group logout (handler in Commands.lua)
     [83] = "",                                  -- bulk group login (handler in Commands.lua)
     [85] = "reset",
@@ -79,11 +83,11 @@ UnBotExecuteCommand = {
     [96] = "talents",
     [97] = "trainer",
     [98] = "d revive targets",
-    [99] = ".bot action rest",                  -- sit and consume food/drink
+    [99] = "d food",                            -- eat order (party bots rest and eat)
     [100] = ".bot action stay",                 -- halt and hold spot
     [101] = "d give leader",
     [102] = "",                                 -- role bar, handled in Commands.lua
-    [103] = "loot",                             -- loot nearby corpse or object
+    [103] = "d use go",                         -- use nearby world object (chests, levers, herbs, ore)
 
     -- Formations
     [104] = "formation far",
@@ -185,6 +189,9 @@ UnBotExecuteCommand = {
     [180] = "home",                             -- bind hearthstone at innkeeper
     [181] = "taxi",                             -- purchase flight path
     [182] = "reset",                            -- soft reset transient combat state
+    [183] = ".bot action raid custom off",      -- disable Turtle custom raid tactics
+    [184] = ".bot action raid custom status",   -- check Turtle custom raid tactics
+    [185] = ".bot action raid status",          -- list loaded boss tactics per bot
 }
 
 -- How the command is delivered:
@@ -227,6 +234,7 @@ UnBotCommandType = {
     [163] = 4, [164] = 4, [165] = 4, [166] = 4, [167] = 4, [168] = 2, [169] = 2,
     [170] = 4, [171] = 4, [172] = 4, [173] = 4, [174] = 4, [175] = 4, [176] = 4,
     [177] = 4, [178] = 4, [179] = 4, [180] = 2, [181] = 2, [182] = 2,
+    [183] = 4, [184] = 4, [185] = 4,
 }
 
 -- Which of the command-bar groups a command belongs to.
@@ -565,6 +573,9 @@ UnBotCommandIcon = {
     [180] = I.."INV_Misc_Rune_01",
     [181] = I.."Ability_Mount_Gryphon_01",
     [182] = I.."Spell_Holy_DispelMagic",
+    [183] = I.."Spell_Shadow_AntiShadow",
+    [184] = I.."Spell_Arcane_PortalIronForge",
+    [185] = I.."INV_Misc_Book_11",
 }
 
 -- Original 3.3.5 icon indices, kept for reference only.
@@ -601,4 +612,419 @@ UnBotGroupDefault = {
     [9] = 38,   -- formation
     [10] = 74,  -- account roster window
 }
+
+--=========================================================================--
+--  TortoiseBots TBM Protocol Constants & Roles Alignment
+--=========================================================================--
+
+Retinue = Retinue or {}
+retinue = Retinue
+UnBot = Retinue
+Retinue.C = Retinue.C or {}
+local C = Retinue.C
+
+C.VERSION = "1.1.0"
+C.ADDON_PREFIX = "TBM"
+C.ADDON_TRANSPORT = "PARTY"
+C.SEND_DELAY = 0.35
+
+C.STATUS = {
+    OFFLINE         = "offline",
+    OFFLINE_PENDING = "offline-pending",
+    UNKNOWN         = "unknown",
+    FAILED          = "failed",
+    QUEUED          = "queued",
+    STARTING        = "starting",
+    ONLINE          = "online",
+    COMMANDING      = "commanding",
+    SUMMONING       = "summoning",
+    INVITING        = "inviting",
+    KICKING         = "kicking",
+    REMOVING        = "removing",
+}
+
+C.CLASS_NAMES = {
+    [1]  = "Warrior",
+    [2]  = "Paladin",
+    [3]  = "Hunter",
+    [4]  = "Rogue",
+    [5]  = "Priest",
+    [6]  = "Death Knight",
+    [7]  = "Shaman",
+    [8]  = "Mage",
+    [9]  = "Warlock",
+    [11] = "Druid",
+}
+
+C.CLASS_NAME_TO_ID = {
+    Warrior = 1, WARRIOR = 1,
+    Paladin = 2, PALADIN = 2,
+    Hunter  = 3, HUNTER  = 3,
+    Rogue   = 4, ROGUE   = 4,
+    Priest  = 5, PRIEST  = 5,
+    ["Death Knight"] = 6, DEATHKNIGHT = 6,
+    Shaman  = 7, SHAMAN  = 7,
+    Mage    = 8, MAGE    = 8,
+    Warlock = 9, WARLOCK = 9,
+    Druid   = 11, DRUID  = 11,
+}
+
+C.CLASS_COLORS = {
+    [1]  = { 0.78, 0.61, 0.43, hex = "ffc79c6e" },
+    [2]  = { 0.96, 0.55, 0.73, hex = "fff58cba" },
+    [3]  = { 0.67, 0.83, 0.45, hex = "ffabd473" },
+    [4]  = { 1.00, 0.96, 0.41, hex = "fffff569" },
+    [5]  = { 1.00, 1.00, 1.00, hex = "ffffffff" },
+    [6]  = { 0.77, 0.12, 0.23, hex = "ffc41f3b" },
+    [7]  = { 0.00, 0.44, 0.87, hex = "ff0070de" },
+    [8]  = { 0.41, 0.80, 0.94, hex = "ff69ccf0" },
+    [9]  = { 0.58, 0.51, 0.79, hex = "ff9482c9" },
+    [11] = { 1.00, 0.49, 0.04, hex = "ffff7d0a" },
+}
+
+--=========================================================================--
+--  Class Coordinates (256x256 UI-CharacterCreate-Classes) & Colors
+--  Vanilla 1.12.1 / Turtle WoW FrameXML does not provide CLASS_ICON_TCOORDS
+--  globally, so we define and export it universally to avoid nil indexing.
+--=========================================================================--
+
+CLASS_ICON_TCOORDS = CLASS_ICON_TCOORDS or {
+    WARRIOR     = {0.0, 0.25, 0.0, 0.25},
+    MAGE        = {0.25, 0.49609375, 0.0, 0.25},
+    ROGUE       = {0.49609375, 0.7421875, 0.0, 0.25},
+    DRUID       = {0.7421875, 0.98828125, 0.0, 0.25},
+    HUNTER      = {0.0, 0.25, 0.25, 0.5},
+    SHAMAN      = {0.25, 0.49609375, 0.25, 0.5},
+    PRIEST      = {0.49609375, 0.7421875, 0.25, 0.5},
+    WARLOCK     = {0.7421875, 0.98828125, 0.25, 0.5},
+    PALADIN     = {0.0, 0.25, 0.5, 0.75},
+    DEATHKNIGHT = {0.25, 0.5, 0.5, 0.75},
+}
+
+CLASS_COLOR = CLASS_COLOR or {
+    WARRIOR     = {0.78, 0.61, 0.43, hex = "ffc79c6e"},
+    PALADIN     = {0.96, 0.55, 0.73, hex = "fff58cba"},
+    HUNTER      = {0.67, 0.83, 0.45, hex = "ffabd473"},
+    ROGUE       = {1.00, 0.96, 0.41, hex = "fffff569"},
+    PRIEST      = {1.00, 1.00, 1.00, hex = "ffffffff"},
+    DEATHKNIGHT = {0.77, 0.12, 0.23, hex = "ffc41f3b"},
+    SHAMAN      = {0.00, 0.44, 0.87, hex = "ff0070de"},
+    MAGE        = {0.41, 0.80, 0.94, hex = "ff69ccf0"},
+    WARLOCK     = {0.58, 0.51, 0.79, hex = "ff9482c9"},
+    DRUID       = {1.00, 0.49, 0.04, hex = "ffff7d0a"},
+}
+
+local classAliases = {
+    [1]  = "WARRIOR",     ["1"]  = "WARRIOR",     Warrior = "WARRIOR",     warrior = "WARRIOR",
+    [2]  = "PALADIN",     ["2"]  = "PALADIN",     Paladin = "PALADIN",     paladin = "PALADIN",
+    [3]  = "HUNTER",      ["3"]  = "HUNTER",      Hunter  = "HUNTER",      hunter  = "HUNTER",
+    [4]  = "ROGUE",       ["4"]  = "ROGUE",       Rogue   = "ROGUE",       rogue   = "ROGUE",
+    [5]  = "PRIEST",      ["5"]  = "PRIEST",      Priest  = "PRIEST",      priest  = "PRIEST",
+    [6]  = "DEATHKNIGHT", ["6"]  = "DEATHKNIGHT", ["Death Knight"] = "DEATHKNIGHT", deathknight = "DEATHKNIGHT",
+    [7]  = "SHAMAN",      ["7"]  = "SHAMAN",      Shaman  = "SHAMAN",      shaman  = "SHAMAN",
+    [8]  = "MAGE",        ["8"]  = "MAGE",        Mage    = "MAGE",        mage    = "MAGE",
+    [9]  = "WARLOCK",     ["9"]  = "WARLOCK",     Warlock = "WARLOCK",     warlock = "WARLOCK",
+    [11] = "DRUID",       ["11"] = "DRUID",       Druid   = "DRUID",       druid   = "DRUID",
+}
+
+for alias, canonical in pairs(classAliases) do
+    if CLASS_ICON_TCOORDS[canonical] and not CLASS_ICON_TCOORDS[alias] then
+        CLASS_ICON_TCOORDS[alias] = CLASS_ICON_TCOORDS[canonical]
+    end
+    if CLASS_COLOR[canonical] and not CLASS_COLOR[alias] then
+        CLASS_COLOR[alias] = CLASS_COLOR[canonical]
+    end
+end
+
+Retinue.CLASS_ICON_TCOORDS = CLASS_ICON_TCOORDS
+C.CLASS_ICON_TCOORDS = CLASS_ICON_TCOORDS
+Retinue.CLASS_COLOR = CLASS_COLOR
+C.CLASS_COLOR = CLASS_COLOR
+
+function UnBot:GetClassColor(classOrId)
+    local fallback = { 0.92, 0.90, 0.84, hex = "ffebe6d6" }
+    if not classOrId then return fallback end
+    if CLASS_COLOR and CLASS_COLOR[classOrId] then
+        return CLASS_COLOR[classOrId]
+    end
+    local num = tonumber(classOrId)
+    if num and CLASS_COLOR and CLASS_COLOR[num] then
+        return CLASS_COLOR[num]
+    end
+    if type(classOrId) == "string" then
+        local up = string.upper(classOrId)
+        if CLASS_COLOR and CLASS_COLOR[up] then
+            return CLASS_COLOR[up]
+        end
+    end
+    if Retinue and Retinue.C and Retinue.C.CLASS_COLORS then
+        if num and Retinue.C.CLASS_COLORS[num] then
+            return Retinue.C.CLASS_COLORS[num]
+        end
+    end
+    return fallback
+end
+
+function UnBot:GetClassCoords(classOrId)
+    if not classOrId then return nil end
+    local coords = CLASS_ICON_TCOORDS or (Retinue and Retinue.CLASS_ICON_TCOORDS)
+    if not coords then return nil end
+    if coords[classOrId] then return coords[classOrId] end
+    local num = tonumber(classOrId)
+    if num and coords[num] then return coords[num] end
+    if type(classOrId) == "string" then
+        local up = string.upper(classOrId)
+        if coords[up] then return coords[up] end
+    end
+    return nil
+end
+
+function UnBot:GetClassName(classOrId)
+    if not classOrId then return "Unknown" end
+    local num = tonumber(classOrId)
+    if num and Retinue and Retinue.C and Retinue.C.CLASS_NAMES and Retinue.C.CLASS_NAMES[num] then
+        return Retinue.C.CLASS_NAMES[num]
+    end
+    if type(classOrId) == "string" then
+        local up = string.upper(classOrId)
+        if Retinue and Retinue.C and Retinue.C.CLASS_NAME_TO_ID and Retinue.C.CLASS_NAME_TO_ID[up] then
+            local id = Retinue.C.CLASS_NAME_TO_ID[up]
+            if Retinue.C.CLASS_NAMES and Retinue.C.CLASS_NAMES[id] then
+                return Retinue.C.CLASS_NAMES[id]
+            end
+        end
+        return classOrId
+    end
+    return tostring(classOrId)
+end
+
+function UnBot:GetClassToken(classOrId)
+    if not classOrId then return "WARRIOR" end
+    local num = tonumber(classOrId)
+    if num and Retinue and Retinue.C and Retinue.C.CLASS_NAMES and Retinue.C.CLASS_NAMES[num] then
+        return string.upper(Retinue.C.CLASS_NAMES[num])
+    end
+    if type(classOrId) == "string" then
+        local up = string.upper(classOrId)
+        if CLASS_COLOR and CLASS_COLOR[up] then return up end
+        if Retinue and Retinue.C and Retinue.C.CLASS_NAME_TO_ID and Retinue.C.CLASS_NAME_TO_ID[up] then
+            local id = Retinue.C.CLASS_NAME_TO_ID[up]
+            if Retinue.C.CLASS_NAMES and Retinue.C.CLASS_NAMES[id] then
+                return string.upper(Retinue.C.CLASS_NAMES[id])
+            end
+        end
+        return up
+    end
+    return "WARRIOR"
+end
+
+C.CC_MARKS = {
+    { id = "moon",     label = "Moon",     icon = 5 },
+    { id = "circle",   label = "Circle",   icon = 2 },
+    { id = "square",   label = "Square",   icon = 6 },
+    { id = "cross",    label = "Cross",    icon = 7 },
+    { id = "triangle", label = "Triangle", icon = 4 },
+    { id = "diamond",  label = "Diamond",  icon = 3 },
+    { id = "star",     label = "Star",     icon = 1 },
+    { id = "skull",    label = "Skull",    icon = 8 },
+}
+C.CC_MARK_LABELS = {}
+C.CC_MARK_ICONS = {}
+for i = 1, table.getn(C.CC_MARKS) do
+    local mark = C.CC_MARKS[i]
+    C.CC_MARK_LABELS[mark.id] = mark.label
+    C.CC_MARK_ICONS[mark.id] = mark.icon
+end
+
+C.PULL_DELAY_DEFAULT     = 10
+C.PULLBACK_DELAY_DEFAULT = 3
+C.PULL_DELAY_MIN         = 0
+C.PULL_DELAY_MAX         = 60
+
+C.BEHAVIORS = {
+    { key = "loot",     label = "Loot corpses", tip = "Loot corpses after a fight." },
+    { key = "aoe",      label = "AoE spells",   tip = "Use area-of-effect abilities (held back next to crowd-controlled mobs)." },
+    { key = "autocc",   label = "Auto CC",      tip = "Crowd-control a loose add that hits your healer, on its own. Your CC marks always win." },
+    { key = "savemana", label = "Save mana",    tip = "Wait longer between repeated casts to stretch mana on long fights.", mana = true },
+    { key = "boost",    label = "Cooldowns",    tip = "Use big offensive cooldowns during fights." },
+    { key = "threat",   label = "Watch threat", tip = "Ease off damage when close to pulling aggro from the tank." },
+    { key = "potions",  label = "Potions",      tip = "Drink healing and mana potions when low." },
+}
+C.NO_MANA_CLASSES = { [1] = true, [4] = true }
+
+-- Paperdoll slot mapping for Bot Inspector
+C.GEAR_LEFT = {
+    { slot = 0,  label = "Head",     empty = "Head" },
+    { slot = 1,  label = "Neck",     empty = "Neck" },
+    { slot = 2,  label = "Shoulder", empty = "Shoulder" },
+    { slot = 14, label = "Back",     empty = "Chest" },
+    { slot = 4,  label = "Chest",    empty = "Chest" },
+    { slot = 3,  label = "Shirt",    empty = "Shirt" },
+    { slot = 18, label = "Tabard",   empty = "Tabard" },
+    { slot = 8,  label = "Wrist",    empty = "Wrists" },
+}
+C.GEAR_RIGHT = {
+    { slot = 9,  label = "Hands",    empty = "Hands" },
+    { slot = 5,  label = "Waist",    empty = "Waist" },
+    { slot = 6,  label = "Legs",     empty = "Legs" },
+    { slot = 7,  label = "Feet",     empty = "Feet" },
+    { slot = 10, label = "Ring",     empty = "Finger" },
+    { slot = 11, label = "Ring",     empty = "Finger" },
+    { slot = 12, label = "Trinket",  empty = "Trinket" },
+    { slot = 13, label = "Trinket",  empty = "Trinket" },
+}
+C.GEAR_BOTTOM = {
+    { slot = 15, label = "Main hand", empty = "MainHand" },
+    { slot = 16, label = "Off hand",  empty = "SecondaryHand" },
+    { slot = 17, label = "Ranged",    empty = "Ranged" },
+}
+
+-- Unified Combat Role Policy
+Retinue = Retinue or {}
+retinue = Retinue
+UnBot = Retinue
+Retinue.Roles = Retinue.Roles or {}
+local Roles = Retinue.Roles
+
+Roles.CLASS_ROLES = {
+    [1] = { -- Warrior
+        { id = "tank", label = "Tank", strat = "+protection,-arms,-fury" },
+        { id = "dps",  label = "DPS",  strat = "+arms,-protection" },
+    },
+    [2] = { -- Paladin
+        { id = "tank", label = "Tank",   strat = "+protection,-holy,-retribution" },
+        { id = "heal", label = "Healer", strat = "+holy,-protection,-retribution,-offdps" },
+        { id = "dps",  label = "DPS",    strat = "+retribution,-protection,-holy" },
+    },
+    [3] = { -- Hunter
+        { id = "bm",       label = "Beastmaster", strat = "+beast mastery,-marksmanship,-survival" },
+        { id = "mm",       label = "Marksman",    strat = "+marksmanship,-beast mastery,-survival" },
+        { id = "survival", label = "Survival",    strat = "+survival,-beast mastery,-marksmanship" },
+    },
+    [4] = { -- Rogue
+        { id = "combat",   label = "Combat",       strat = "+combat,-assassination,-subtlety" },
+        { id = "assa",     label = "Assassination", strat = "+assassination,-combat,-subtlety" },
+        { id = "subtlety", label = "Subtlety",      strat = "+subtlety,-combat,-assassination" },
+    },
+    [5] = { -- Priest
+        { id = "heal",   label = "Healer", strat = "+holy,-shadow,-offdps" },
+        { id = "hybrid", label = "Hybrid", strat = "+holy,+offdps,-shadow" },
+        { id = "dps",    label = "Shadow", strat = "+shadow,-holy,-discipline,-offdps" },
+    },
+    [7] = { -- Shaman
+        { id = "heal", label = "Healer",  strat = "+restoration,-elemental,-enhancement,-offdps" },
+        { id = "ele",  label = "Ele DPS", strat = "+elemental,-restoration,-enhancement" },
+        { id = "enh",  label = "Enh DPS", strat = "+enhancement,-restoration,-elemental" },
+    },
+    [8] = { -- Mage
+        { id = "frost",  label = "Frost",  strat = "+frost,-fire,-arcane" },
+        { id = "fire",   label = "Fire",   strat = "+fire,-frost,-arcane" },
+        { id = "arcane", label = "Arcane", strat = "+arcane,-frost,-fire" },
+    },
+    [9] = { -- Warlock
+        { id = "affliction",  label = "Affliction",  strat = "+affliction,-demonology,-destruction" },
+        { id = "demonology",  label = "Demonology",  strat = "+demonology,-affliction,-destruction" },
+        { id = "destruction", label = "Destruction", strat = "+destruction,-affliction,-demonology" },
+    },
+    [11] = { -- Druid
+        { id = "tank",    label = "Bear Tank",  strat = "+tank feral,-dps feral,-restoration,-balance" },
+        { id = "cat",     label = "Cat DPS",    strat = "+dps feral,-tank feral,-restoration,-balance" },
+        { id = "heal",    label = "Resto Heal", strat = "+restoration,-tank feral,-dps feral,-balance,-offdps" },
+        { id = "boomkin", label = "Boomkin",    strat = "+balance,-tank feral,-dps feral,-restoration" },
+    },
+}
+
+function Roles.GetClassRoles(classId)
+    if type(classId) == "string" and C.CLASS_NAME_TO_ID then
+        classId = C.CLASS_NAME_TO_ID[classId] or classId
+    end
+    return (Roles.CLASS_ROLES and Roles.CLASS_ROLES[classId]) or {}
+end
+
+function Roles.FindRole(classId, roleId)
+    if not roleId and type(classId) == "string" then
+        roleId = classId
+        classId = nil
+    end
+    if not roleId then return nil end
+    local lowerRole = type(roleId) == "string" and string.lower(roleId) or nil
+    if classId then
+        local list = Roles.GetClassRoles(classId)
+        for i = 1, table.getn(list) do
+            local r = list[i]
+            if r.id == roleId or (lowerRole and r.label and string.lower(r.label) == lowerRole) then
+                return r
+            end
+        end
+        return nil
+    end
+    if Roles.CLASS_ROLES then
+        for _, list in pairs(Roles.CLASS_ROLES) do
+            for i = 1, table.getn(list) do
+                local r = list[i]
+                if r.id == roleId or (lowerRole and r.label and string.lower(r.label) == lowerRole) then
+                    return r
+                end
+            end
+        end
+    end
+    return nil
+end
+
+function Roles.GetBotRole(botName, classId)
+    local dbRoles = (RetinueConfig and RetinueConfig.botRoles) or {}
+    local currentId = dbRoles[botName]
+    local roles = Roles.GetClassRoles(classId)
+    if not currentId and roles[1] then
+        currentId = roles[1].id
+    end
+    return currentId, Roles.FindRole(classId, currentId)
+end
+
+function Roles.GetPlayerRole(classId)
+    local roleId = RetinueConfig and RetinueConfig.playerRole
+    local roles = Roles.GetClassRoles(classId)
+    if not roleId and roles[1] then
+        roleId = roles[1].id
+    end
+    return roleId, Roles.FindRole(classId, roleId)
+end
+
+function Roles.SetPlayerRole(roleId, classId)
+    if not RetinueConfig then RetinueConfig = {} end
+    RetinueConfig.playerRole = roleId
+    if roleId then
+        UnBot:SendBotCommand("role self " .. roleId)
+    end
+end
+
+function Roles.CycleBotRole(botName, classId)
+    if not botName then return end
+    local roles = Roles.GetClassRoles(classId)
+    local total = table.getn(roles)
+    if total == 0 then return end
+
+    local currentId = Roles.GetBotRole(botName, classId)
+    local nextIndex = 1
+    for i = 1, total do
+        if roles[i].id == currentId then
+            nextIndex = math.mod(i, total) + 1
+            break
+        end
+    end
+
+    local nextRole = roles[nextIndex]
+    if not RetinueConfig then RetinueConfig = {} end
+    if not RetinueConfig.botRoles then RetinueConfig.botRoles = {} end
+    RetinueConfig.botRoles[botName] = nextRole.id
+
+    UnBot:SendBotCommand("role " .. botName .. " " .. nextRole.id)
+    return nextRole
+end
+
+function Roles.GetRoleLabel(classId, roleId, fallback)
+    local r = Roles.FindRole(classId, roleId)
+    return r and r.label or (fallback or tostring(roleId or ""))
+end
+
 

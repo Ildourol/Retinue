@@ -2,6 +2,10 @@
 -- TITLE ids 0-66 are the original strings; 67-89 were reconstructed from the
 -- command text and handler names after the original file was lost.
 
+Retinue = Retinue or {}
+retinue = Retinue
+UnBot = Retinue
+
 UnBotL = {}
 UnBotFont = "Fonts\\FRIZQT__.TTF"
 
@@ -222,6 +226,9 @@ UnBotL.TITLE = {
     [180] = "Bind hearthstone at current innkeeper",
     [181] = "Purchase flight master destination",
     [182] = "Soft reset transient combat states",
+    [183] = "Raid: Disable custom Turtle raid tactics",
+    [184] = "Raid: Check custom Turtle raid tactics status",
+    [185] = "Raid: Check loaded boss tactics per bot",
 }
 
 -- Longer help text, shown under the title in the tooltip.
@@ -413,6 +420,33 @@ UnBotL.BIND = {
 UnBotL.NPC = {
     SUMMON_DESC_PRE = "Summons: ",
     SELECT_SELF_NPC = "You must select your own NPC bot",
+}
+
+UnBotL.ROSTER = {
+    TAB_ACCOUNT         = "Account",
+    TAB_GUILD           = "Guild",
+    TAB_PARTY           = "Party",
+    TAB_RAID            = "Raid",
+    TAB_CC              = "CC Marks",
+    CLAIMED_TITLE       = "Claimed Guild Bots",
+    CLAIMED_EMPTY       = "No Claimed Guild Bots",
+    CLAIMED_EMPTY_DESC  = "Invite autonomous wandering bots in the world using /ginvite <BotName> to claim them as personal raid alt-bots.",
+    RELEASE_CONFIRM     = "Release %s back to the wandering bot pool (/gkick)?",
+    LOCKED_BADGE        = "[Locked]",
+    LEVELING_BADGE      = "[Leveling]",
+    PARTY_EMPTY         = "No other party members.\nInvite your bots from Roster to manage party roles and CC marks.",
+    RAID_INTRO          = "Orders go to your bots in this raid. Target one of your bots to send an order to that bot only.",
+}
+
+UnBotL.INSPECT = {
+    TAB_GEAR            = "Gear & Bags",
+    TAB_BEHAVIOUR       = "Behaviour",
+    GIVE_TO_ME          = "Give to me",
+    TRADE               = "Trade",
+    DURABILITY          = "Durability",
+    UPGRADE             = "Upgrade",
+    EQUIP               = "Equip",
+    UNEQUIP             = "Unequip",
 }
 
 -- Keybinding labels in Blizzard options

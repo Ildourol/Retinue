@@ -4,15 +4,19 @@
 --   * no `#` (use table.getn), no `%` (use math.mod), no `...` varargs
 
 -- The addon is called Retinue.
-Retinue = {}
-Retinue.addonName = "Retinue"
-Retinue.version = "1.0"
-Retinue.groupButtons = {}
-Retinue.subButtons = {}
-Retinue.handlers = {}
+Retinue = Retinue or {}
+retinue = Retinue
+UnBot = Retinue
+
+Retinue.addonName = Retinue.addonName or "Retinue"
+Retinue.version = Retinue.version or "1.0"
+Retinue.groupButtons = Retinue.groupButtons or {}
+Retinue.subButtons = Retinue.subButtons or {}
+Retinue.handlers = Retinue.handlers or {}
 
 -- Backwards compatibility aliases
 UnBot = Retinue
+retinue = Retinue
 
 function UnBot:Message(msg)
     DEFAULT_CHAT_FRAME:AddMessage("|cff00cccc"..msg.."|r")
@@ -59,10 +63,10 @@ function UnBot:Init()
         return
     end
 
-    self:InitRoster()
-    self:InitItemEvents()
-    self:InitSpellEvents()
-    self:InitUI()
+    if self.InitRoster then self:InitRoster() end
+    if self.InitItemEvents then self:InitItemEvents() end
+    if self.InitSpellEvents then self:InitSpellEvents() end
+    if self.InitUI then self:InitUI() end
     self:Message(self.addonName.." "..self.version.." loaded. Use /retinue")
 end
 
@@ -126,6 +130,8 @@ function UnBot:RegisterSlashCommands()
             UnBot:RequestServerRoster(true)
         elseif msg == "strategy" or msg == "strat" then
             UnBot:ShowStrategyWindow()
+        elseif msg == "behavior" or msg == "behaviour" then
+            UnBot:ShowStrategyWindow("behavior")
         elseif msg == "spells" then
             UnBot:ShowSpellWindow()
         elseif msg == "bags" then
@@ -177,7 +183,7 @@ function UnBot:ToggleUI()
 end
 
 function UnBot:CloseAll()
-    self:HideAllSubFrames()
+    if self.HideAllSubFrames then self:HideAllSubFrames() end
     if self.HideActions then
         self:HideActions()
     elseif UnBotActionsFrame then
@@ -341,6 +347,13 @@ function UnBot:RunCommand(commandId)
         return
     end
 
+    -- Route .bot commands through the quiet TBM transport when available
+    if string.find(text, "^%.bot%s+") then
+        local sub = string.gsub(text, "^%.bot%s+", "")
+        self:SendBotCommand(sub)
+        return
+    end
+
     if cmdType == 1 then
         SendChatMessage(text, "SAY")
 
@@ -363,6 +376,94 @@ function UnBot:RunCommand(commandId)
     else
         self:Message(string.format(UnBotL.MSG.CMD_NOT_FOUND, tostring(commandId)))
     end
+end
+
+--=========================================================================--
+--  Quiet TBM Transport & Protocol Dispatcher
+--=========================================================================--
+
+UnBot.addonTransport = "none"
+UnBot.serverCaps = {}
+
+function UnBot:AddonCommandChannel()
+    if self.addonTransport == "party" and (GetNumPartyMembers() > 0 or GetNumRaidMembers() > 0) then
+        return (self.C and self.C.ADDON_TRANSPORT) or "PARTY"
+    end
+    return nil
+end
+
+function UnBot:SetAddonTransport(transport)
+    transport = string.lower(transport or "")
+    if transport == "party" then
+        self.addonTransport = "party"
+    else
+        self.addonTransport = "none"
+    end
+end
+
+function UnBot:HasServerCapability(cap)
+    if not cap or not self.serverCaps then return false end
+    return self.serverCaps[string.lower(cap)] and true or false
+end
+
+function UnBot:SendBotCommand(cmd, opts)
+    if not cmd or cmd == "" then return false end
+    cmd = string.gsub(cmd, "^%s+", "")
+    cmd = string.gsub(cmd, "%s+$", "")
+    if string.find(cmd, "^%.bot%s+") then
+        cmd = string.gsub(cmd, "^%.bot%s+", "")
+    end
+    if cmd == "" then return false end
+
+    local channel = self:AddonCommandChannel()
+    if channel then
+        SendAddonMessage((self.C and self.C.ADDON_PREFIX) or "TBM", cmd, channel)
+    else
+        SendChatMessage(".bot " .. cmd)
+    end
+    self.lastCommand = cmd
+    self.lastCommandAt = (GetTime and GetTime()) or 0
+    return true
+end
+
+function UnBot:OnTBMSystemMessage(msg)
+    if not msg or msg == "" then return false end
+
+    local _, _, caps = string.find(msg, "^TBM:CAPS|(.*)$")
+    if caps then
+        self.serverCaps = {}
+        local iter = string.gmatch or string.gfind
+        for item in iter(caps, "[^,%s|]+") do
+            self.serverCaps[string.lower(item)] = true
+        end
+        return true
+    end
+
+    local _, _, transport = string.find(msg, "^TBM:TRANSPORT|(%S+)")
+    if transport then
+        self:SetAddonTransport(transport)
+        return true
+    end
+
+    local _, _, version = string.find(msg, "^TBM:VERSION|(%S+)")
+    if version then
+        self.serverVersion = version
+        return true
+    end
+
+    if self.ParseServerRoster and self:ParseServerRoster(msg) then
+        return true
+    end
+
+    if self.ParseBotInspectorMessage and self:ParseBotInspectorMessage(msg) then
+        return true
+    end
+
+    if self.ParseBotStateMessage and self:ParseBotStateMessage(msg) then
+        return true
+    end
+
+    return false
 end
 
 --=========================================================================--
@@ -580,14 +681,35 @@ end
 local capture = CreateFrame("Frame", "UnBotCaptureFrame")
 capture:RegisterEvent("CHAT_MSG_WHISPER")
 capture:RegisterEvent("CHAT_MSG_SYSTEM")
+capture:RegisterEvent("CHAT_MSG_ADDON")
 capture:RegisterEvent("CHAT_MSG_WHISPER_INFORM")   -- what we sent, to verify it left
+capture:RegisterEvent("CHAT_MSG_PARTY")
 capture:SetScript("OnEvent", function()
+    if event == "CHAT_MSG_ADDON" then
+        if arg1 == "TBM" and arg2 then
+            UnBot:OnTBMSystemMessage(arg2)
+        end
+        return
+    elseif event == "CHAT_MSG_SYSTEM" and arg1 then
+        if string.find(arg1, "^TBM:") then
+            UnBot:OnTBMSystemMessage(arg1)
+        elseif string.find(arg1, "^Strategy change '") then
+            -- Server confirmed a strategy change via .bot strategy: refresh active view
+            if UnBotStrategyFrame and UnBotStrategyFrame:IsShown() and type(UnBot.RefreshStrategies) == "function" then
+                UnBot:RefreshStrategies()
+            end
+        end
+    end
+
     local who = arg2 or "system"
     if event == "CHAT_MSG_WHISPER_INFORM" then who = "-> "..who end
     UnBot:CaptureLine(who, arg1)
 
     -- learn strategy names whenever they appear, capture on or off
-    if event == "CHAT_MSG_WHISPER" then
+    if event == "CHAT_MSG_WHISPER" or event == "CHAT_MSG_PARTY" then
+        if event == "CHAT_MSG_WHISPER" and string.find(arg1, "^TBM:") and type(UnBot.OnTBMSystemMessage) == "function" then
+            UnBot:OnTBMSystemMessage(arg1)
+        end
         UnBot:ParseStrategyList(arg1)
         if type(UnBot.ParseCombatStrategies) == "function" then
             UnBot:ParseCombatStrategies(arg2, arg1)
@@ -662,7 +784,14 @@ pump:SetScript("OnUpdate", function()
         item.action()
     else
         if UnBot.debug then UnBot:Message("queue: say "..item.text) end
-        SendChatMessage(item.text, item.channel, nil, item.target)
+        if string.find(item.text, "^%.bot%s+") then
+            local sub = string.gsub(item.text, "^%.bot%s+", "")
+            UnBot:SendBotCommand(sub)
+        elseif string.find(item.text, "^[%.%/]") then
+            SendChatMessage(item.text)
+        else
+            SendChatMessage(item.text, item.channel, nil, item.target)
+        end
     end
 end)
 
