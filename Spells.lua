@@ -419,14 +419,30 @@ function UnBot:ShowSpellWindow()
 
     if not UnBotSpellFrame then self:CreateSpellFrame() end
 
+    local cleanTarget = string.gsub(target, "%-.*$", "")
     self.spellTarget          = target
     self.spellOffset          = 0
-    self.spellList            = {}
     self.spellFilter          = "ALL"
     self.spellBuffsOnly       = false
     self.spellSearchQuery     = ""
     self.expandedSpellGroups  = {}
-    self.spellTree            = self:BuildSpellTree()
+    self.expandedSpellQuerySent = false
+
+    -- Use session cache for instant 0ms display if previously fetched
+    self.botSpellCache = self.botSpellCache or {}
+    self.knownSpellNames = {}
+    if self.botSpellCache[cleanTarget] then
+        self.spellList = {}
+        local cached = self.botSpellCache[cleanTarget]
+        for i = 1, table.getn(cached) do
+            table.insert(self.spellList, cached[i])
+            self.knownSpellNames[cached[i].name] = true
+        end
+        self.spellTree = self:BuildSpellTree()
+    else
+        self.spellList = {}
+        self.spellTree = self:BuildSpellTree()
+    end
 
     if UnBotSpellSearchEdit then
         UnBotSpellSearchEdit:SetText("")
@@ -435,6 +451,8 @@ function UnBot:ShowSpellWindow()
     UnBotSpellFrame:Show()
     self:UpdateFilterChips()
     self:RefreshSpells()
+
+    -- Silently request spellbook from the bot (intercepted by stealth chat hook)
     SendChatMessage("spells", "WHISPER", nil, target)
 end
 
@@ -778,25 +796,44 @@ end
 
 function UnBot:ReceiveSpells(msg, sender)
     if not msg or not sender then return end
-    if not UnBotSpellFrame or not UnBotSpellFrame:IsShown() then return end
     local cleanSender = string.gsub(sender, "%-.*$", "")
     local cleanTarget = self.spellTarget and string.gsub(self.spellTarget, "%-.*$", "")
     if cleanSender ~= cleanTarget and sender ~= self.spellTarget then return end
 
+    -- Check if server truncated spells beyond the 50-item limit
+    if string.find(msg, "(%d+)%s*more%.%.%.") and not self.expandedSpellQuerySent then
+        self.expandedSpellQuerySent = true
+        -- Silently dispatch supplementary queries to guarantee 100% of spells are retrieved
+        local vowels = { "a", "e", "i", "o", "u" }
+        for v = 1, table.getn(vowels) do
+            SendChatMessage("spells " .. vowels[v], "WHISPER", nil, self.spellTarget)
+        end
+    end
+
     local added = 0
     local pos = 1
+    self.knownSpellNames = self.knownSpellNames or {}
     while true do
         local s, e, id, name = string.find(msg, "Hspell:(%d+)[^|]*|h%[([^%]]+)%]", pos)
         if not s then break end
-        table.insert(self.spellList, { id = tonumber(id), name = name })
-        added = added + 1
+        if not self.knownSpellNames[name] then
+            self.knownSpellNames[name] = true
+            table.insert(self.spellList, { id = tonumber(id), name = name })
+            added = added + 1
+        end
         pos = e + 1
     end
 
     if added > 0 then
-        self.spellTree = self:BuildSpellTree()
-        self:UpdateFilterChips()
-        self:RefreshSpells()
+        if cleanTarget then
+            self.botSpellCache = self.botSpellCache or {}
+            self.botSpellCache[cleanTarget] = self.spellList
+        end
+        if UnBotSpellFrame and UnBotSpellFrame:IsShown() then
+            self.spellTree = self:BuildSpellTree()
+            self:UpdateFilterChips()
+            self:RefreshSpells()
+        end
     end
 end
 
@@ -806,6 +843,93 @@ function UnBot:InitSpellEvents()
     f:SetScript("OnEvent", function()
         UnBot:ReceiveSpells(arg1, arg2)
     end)
+
+    -- Track whether a whisper was manually typed by the player into ChatFrameEditBox
+    local userTypedInChat = false
+
+    if not UnBot.chatEditHooked and type(ChatEdit_SendText) == "function" then
+        local orig_ChatEdit_SendText = ChatEdit_SendText
+        ChatEdit_SendText = function(editBox, addHistory)
+            userTypedInChat = true
+            local result = orig_ChatEdit_SendText(editBox, addHistory)
+            userTypedInChat = false
+            return result
+        end
+        UnBot.chatEditHooked = true
+    end
+
+    if not UnBot.sendChatMessageHooked and type(SendChatMessage) == "function" then
+        local orig_SendChatMessage = SendChatMessage
+        SendChatMessage = function(msg, chatType, language, channel)
+            if (chatType == "WHISPER") and not userTypedInChat and channel then
+                local clean = string.gsub(channel, "%-.*$", "")
+                local now = (GetTime and GetTime()) or 0
+                UnBot.stealthAddonWhisper = UnBot.stealthAddonWhisper or {}
+                UnBot.stealthAddonWhisper[clean] = now
+
+                UnBot.stealthAddonOutgoing = UnBot.stealthAddonOutgoing or {}
+                local key = clean .. ":" .. string.lower(msg or "")
+                UnBot.stealthAddonOutgoing[key] = now
+            elseif (chatType == "WHISPER") and userTypedInChat and channel then
+                -- Player typed manually in chat: clear any pending stealth expectation for this target
+                local clean = string.gsub(channel, "%-.*$", "")
+                if UnBot.stealthAddonWhisper then
+                    UnBot.stealthAddonWhisper[clean] = nil
+                end
+            end
+            return orig_SendChatMessage(msg, chatType, language, channel)
+        end
+        UnBot.sendChatMessageHooked = true
+    end
+
+    -- Install Stealth Chat Filter Hook to bypass whisper display ONLY for addon-initiated queries
+    -- Manual commands typed by the user into chat (e.g. '/w Bot co ?' or 'spells') display normally.
+    if not UnBot.chatFrameHooked then
+        local orig_ChatFrame_OnEvent = ChatFrame_OnEvent
+        ChatFrame_OnEvent = function(event)
+            local now = (GetTime and GetTime()) or 0
+
+            -- 1. Intercept incoming bot whispers ONLY IF requested by the addon
+            if event == "CHAT_MSG_WHISPER" then
+                local sender = arg2 or ""
+                local cleanSender = string.gsub(sender, "%-.*$", "")
+
+                if UnBot.stealthAddonWhisper and UnBot.stealthAddonWhisper[cleanSender] then
+                    if (now - UnBot.stealthAddonWhisper[cleanSender] < 4.5) then
+                        local msg = arg1 or ""
+                        if string.find(msg, "|Hspell:") or string.find(msg, "=== Spells ===") or string.find(msg, "more%.%.%.")
+                           or string.find(msg, "[Cc]ombat%s+[Ss]trategies:") or string.find(msg, "^%s*[Ss]trategies:")
+                           or string.find(msg, "[Nn]on[%s%-]*[Cc]ombat") or string.find(msg, "Hvalue:help:")
+                           or string.find(msg, "^TBM:") then
+                            -- Extend stealth timestamp for multi-line streams (e.g. long spell lists)
+                            UnBot.stealthAddonWhisper[cleanSender] = now
+                            return -- Drop from ChatFrame (prevents chat tab spam and whisper sound)
+                        end
+                    else
+                        UnBot.stealthAddonWhisper[cleanSender] = nil
+                    end
+                end
+
+            -- 2. Intercept outgoing command whispers ONLY IF dispatched by the addon
+            elseif event == "CHAT_MSG_WHISPER_INFORM" then
+                local recipient = arg2 or ""
+                local cleanRecipient = string.gsub(recipient, "%-.*$", "")
+                local rawMsg = arg1 or ""
+                local key = cleanRecipient .. ":" .. string.lower(rawMsg)
+
+                if UnBot.stealthAddonOutgoing and UnBot.stealthAddonOutgoing[key] then
+                    if (now - UnBot.stealthAddonOutgoing[key] < 4.5) then
+                        UnBot.stealthAddonOutgoing[key] = nil
+                        return -- Drop outgoing whisper from player's chat log
+                    else
+                        UnBot.stealthAddonOutgoing[key] = nil
+                    end
+                end
+            end
+            return orig_ChatFrame_OnEvent(event)
+        end
+        UnBot.chatFrameHooked = true
+    end
 end
 
 --=========================================================================--
