@@ -423,8 +423,8 @@ function UnBot:InitRosterEvents()
         elseif event == "PLAYER_TARGET_CHANGED" then
             if UnitExists("target") and UnitIsPlayer("target") and UnitIsFriend("player", "target") then
                 UnBot:ScanGroupBots()
-                UnBot:RefreshActiveRosterView()
             end
+            UnBot:RefreshActiveRosterView()
             return
         end
 
@@ -900,6 +900,7 @@ function UnBot:CreateRosterFrame()
     self:CreateGuildView(f)
     self:CreatePartyView(f)
     self:CreateRaidView(f)
+    self:CreateRolesView(f)
     self:CreateCCView(f)
 
     local initialTab = (IsInGroup() and "party") or (self.config.activeRosterTab or "account")
@@ -915,16 +916,17 @@ function UnBot:CreateRosterTabs(parent)
     self.rosterTabButtons = {}
     local tabDefs = {
         { id = "account", label = "Account",  offset = 0 },
-        { id = "guild",   label = "Guild",    offset = 94 },
-        { id = "party",   label = "Party",    offset = 188 },
-        { id = "raid",    label = "Raid",     offset = 282 },
-        { id = "cc",      label = "CC Marks", offset = 376 },
+        { id = "guild",   label = "Guild",    offset = 79 },
+        { id = "party",   label = "Party",    offset = 158 },
+        { id = "raid",    label = "Raid",     offset = 237 },
+        { id = "roles",   label = "Roles",    offset = 316 },
+        { id = "cc",      label = "CC Marks", offset = 395 },
     }
 
     for i = 1, table.getn(tabDefs) do
         local def = tabDefs[i]
         local btn = CreateFrame("Button", "UnBotRosterTab_" .. def.id, tabBar, "UIPanelButtonTemplate")
-        btn:SetWidth(90)
+        btn:SetWidth(76)
         btn:SetHeight(20)
         btn:SetPoint("LEFT", tabBar, "LEFT", def.offset, 0)
         btn:SetText(def.label)
@@ -952,6 +954,7 @@ function UnBot:SelectRosterTab(tabId)
     if self.guildView then self.guildView:Hide() end
     if self.partyView then self.partyView:Hide() end
     if self.raidView then self.raidView:Hide() end
+    if self.rolesView then self.rolesView:Hide() end
     if self.ccView then self.ccView:Hide() end
 
     if tabId == "account" and self.accountView then
@@ -966,6 +969,9 @@ function UnBot:SelectRosterTab(tabId)
     elseif tabId == "raid" and self.raidView then
         self.raidView:Show()
         self:RefreshRaidView()
+    elseif tabId == "roles" and self.rolesView then
+        self.rolesView:Show()
+        self:RefreshRolesView()
     elseif tabId == "cc" and self.ccView then
         self.ccView:Show()
         self:RefreshCCView()
@@ -979,6 +985,7 @@ function UnBot:RefreshActiveRosterView()
     elseif tab == "guild" then self:RefreshGuildView()
     elseif tab == "party" then self:RefreshPartyView()
     elseif tab == "raid" then self:RefreshRaidView()
+    elseif tab == "roles" then self:RefreshRolesView()
     elseif tab == "cc" then self:RefreshCCView() end
 end
 
@@ -1959,7 +1966,309 @@ function UnBot:RefreshRaidView()
 end
 
 --=========================================================================--
---  Tab 5: CC Marks View (Crowd Control Assignment)
+--  Tab 5: Roles View (Combat Strategy Presets & Batch Roles)
+--=========================================================================--
+
+function UnBot:GetNumGroupMembersOfClass(classToken)
+    if not classToken then return 0 end
+    local count = 0
+    local upperToken = string.upper(classToken)
+    local raid = GetNumRaidMembers()
+    if raid > 0 then
+        for i = 1, raid do
+            local unit = "raid" .. i
+            if UnitExists(unit) and not UnitIsUnit(unit, "player") then
+                local _, token = UnitClass(unit)
+                if token and string.upper(token) == upperToken then
+                    count = count + 1
+                end
+            end
+        end
+    else
+        local party = GetNumPartyMembers()
+        for i = 1, party do
+            local unit = "party" .. i
+            if UnitExists(unit) and not UnitIsUnit(unit, "player") then
+                local _, token = UnitClass(unit)
+                if token and string.upper(token) == upperToken then
+                    count = count + 1
+                end
+            end
+        end
+    end
+    return count
+end
+
+function UnBot:CreateRolesView(parent)
+    local v = CreateFrame("Frame", "UnBotRolesView", parent)
+    v:SetPoint("TOPLEFT", parent, "TOPLEFT", 12, -60)
+    v:SetWidth(476); v:SetHeight(356)
+    self.rolesView = v
+
+    -- Card 1: Target Bot Role Strategy
+    local targetCard = CreateFrame("Frame", nil, v)
+    targetCard:SetPoint("TOPLEFT", v, "TOPLEFT", 6, 0)
+    targetCard:SetWidth(464); targetCard:SetHeight(68)
+    v.targetCard = targetCard
+
+    local tcTitle = targetCard:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    tcTitle:SetPoint("TOPLEFT", targetCard, "TOPLEFT", 0, 0)
+    tcTitle:SetText("|cffd8a657TARGET BOT COMBAT STRATEGY|r")
+
+    local tcSelected = targetCard:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    tcSelected:SetPoint("TOPLEFT", targetCard, "TOPLEFT", 0, -16)
+    tcSelected:SetWidth(274); tcSelected:SetJustifyH("LEFT")
+    tcSelected:SetText("|cffaaaaaaSelect a grouped bot to inspect or toggle its role.|r")
+    v.targetText = tcSelected
+
+    local tcStatus = targetCard:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    tcStatus:SetPoint("TOPLEFT", targetCard, "TOPLEFT", 0, -32)
+    tcStatus:SetWidth(274); tcStatus:SetJustifyH("LEFT")
+    tcStatus:SetText("Current combat strategy: |cff777777unavailable|r")
+    v.statusText = tcStatus
+
+    local tcHint = targetCard:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    tcHint:SetPoint("TOPLEFT", targetCard, "TOPLEFT", 0, -48)
+    tcHint:SetWidth(274); tcHint:SetJustifyH("LEFT")
+    tcHint:SetText("|cff777777Applies combat strategy profile directly to targeted bot.|r")
+
+    local btnPrimary = CreateFrame("Button", "UnBotRolesViewPrimary", targetCard, "UIPanelButtonTemplate")
+    btnPrimary:SetWidth(86); btnPrimary:SetHeight(22)
+    btnPrimary:SetPoint("TOPLEFT", targetCard, "TOPLEFT", 282, -12)
+    btnPrimary:SetText("Primary")
+    btnPrimary:Disable()
+    btnPrimary:SetScript("OnClick", function()
+        if UnBot.ApplySelectedRole then
+            UnBot:ApplySelectedRole("primary")
+        end
+    end)
+    v.btnPrimary = btnPrimary
+
+    local btnSecondary = CreateFrame("Button", "UnBotRolesViewSecondary", targetCard, "UIPanelButtonTemplate")
+    btnSecondary:SetWidth(86); btnSecondary:SetHeight(22)
+    btnSecondary:SetPoint("LEFT", btnPrimary, "RIGHT", 6, 0)
+    btnSecondary:SetText("Alternative")
+    btnSecondary:Disable()
+    btnSecondary:SetScript("OnClick", function()
+        if UnBot.ApplySelectedRole then
+            UnBot:ApplySelectedRole("secondary")
+        end
+    end)
+    v.btnSecondary = btnSecondary
+
+    local btnRefresh = CreateFrame("Button", "UnBotRolesViewRefresh", targetCard, "UIPanelButtonTemplate")
+    btnRefresh:SetWidth(86); btnRefresh:SetHeight(20)
+    btnRefresh:SetPoint("TOPLEFT", btnPrimary, "BOTTOMLEFT", 0, -5)
+    btnRefresh:SetText("Check role")
+    btnRefresh:SetScript("OnClick", function()
+        if UnBot.RefreshRoleTarget then
+            UnBot:RefreshRoleTarget(true)
+        end
+        UnBot:RefreshRolesView()
+    end)
+    v.btnRefresh = btnRefresh
+
+    -- Card 2: Mass Class Strategy Presets (All Grouped Bots)
+    local massCard = CreateFrame("Frame", nil, v)
+    massCard:SetPoint("TOPLEFT", targetCard, "BOTTOMLEFT", 0, -6)
+    massCard:SetWidth(464); massCard:SetHeight(280)
+    v.massCard = massCard
+
+    local mcTitle = massCard:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    mcTitle:SetPoint("TOPLEFT", massCard, "TOPLEFT", 0, 0)
+    mcTitle:SetText("|cffd8a657MASS CLASS COMBAT STRATEGIES (ALL GROUPED BOTS)|r")
+
+    local mcSubtitle = massCard:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    mcSubtitle:SetPoint("TOPLEFT", massCard, "TOPLEFT", 0, -16)
+    mcSubtitle:SetWidth(464); mcSubtitle:SetJustifyH("LEFT")
+    mcSubtitle:SetText("|cff888888Click a preset to apply to all bots of that class across your party or raid.|r")
+
+    local roleOrder = (Retinue and Retinue.ROLE_ORDER) or (self.ROLE_ORDER) or {
+        "WARRIOR", "PALADIN", "HUNTER", "ROGUE", "PRIEST",
+        "SHAMAN", "MAGE", "WARLOCK", "DRUID",
+    }
+    local presets = (Retinue and Retinue.ROLE_PRESETS) or (self.ROLE_PRESETS) or {}
+
+    v.classRows = {}
+    local totalClasses = table.getn(roleOrder)
+    for i = 1, totalClasses do
+        local classToken = roleOrder[i]
+        local p = presets[classToken]
+        local isLeft = (i <= 5)
+        local colX = isLeft and 0 or 236
+        local rowIndex = isLeft and (i - 1) or (i - 6)
+        local rowY = -34 - (rowIndex * 48)
+
+        local rowFrame = CreateFrame("Frame", nil, massCard)
+        rowFrame:SetWidth(228); rowFrame:SetHeight(44)
+        rowFrame:SetPoint("TOPLEFT", massCard, "TOPLEFT", colX, rowY)
+        rowFrame.classToken = classToken
+
+        -- Clickable header row with highlight
+        local header = CreateFrame("Button", nil, rowFrame)
+        header:SetWidth(228); header:SetHeight(18)
+        header:SetPoint("TOPLEFT", rowFrame, "TOPLEFT", 0, 0)
+        header:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+        header:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight")
+        header.classToken = classToken
+
+        local icon = header:CreateTexture(nil, "ARTWORK")
+        icon:SetWidth(16); icon:SetHeight(16)
+        icon:SetPoint("LEFT", header, "LEFT", 2, 0)
+        local coords = (self.GetClassCoords and self:GetClassCoords(classToken)) or (CLASS_ICON_TCOORDS and CLASS_ICON_TCOORDS[classToken])
+        if coords then
+            icon:SetTexture("Interface\\Glues\\CharacterCreate\\UI-CharacterCreate-Classes")
+            icon:SetTexCoord(coords[1], coords[2], coords[3], coords[4])
+        end
+
+        local nameText = header:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+        nameText:SetPoint("LEFT", icon, "RIGHT", 4, 0)
+        local className = (self.GetClassName and self:GetClassName(classToken))
+                       or (string.upper(string.sub(classToken, 1, 1)) .. string.lower(string.sub(classToken, 2)))
+        nameText:SetText(className)
+        local c = (self.GetClassColor and self:GetClassColor(classToken)) or { 1, 1, 1 }
+        nameText:SetTextColor(c[1], c[2], c[3])
+
+        local countText = header:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        countText:SetPoint("LEFT", nameText, "RIGHT", 6, 0)
+        countText:SetText("|cff666666(0 in group)|r")
+        rowFrame.countText = countText
+
+        header:SetScript("OnClick", function()
+            if arg1 == "RightButton" then
+                if UnBot.ApplyRole then UnBot:ApplyRole(this.classToken, "secondary") end
+            else
+                if UnBot.ApplyRole then UnBot:ApplyRole(this.classToken, "primary") end
+            end
+        end)
+
+        header:SetScript("OnEnter", function()
+            local pr = (Retinue and Retinue.ROLE_PRESETS and Retinue.ROLE_PRESETS[this.classToken])
+                    or (UnBot.ROLE_PRESETS and UnBot.ROLE_PRESETS[this.classToken])
+            if not pr then return end
+            GameTooltip:SetOwner(this, "ANCHOR_RIGHT")
+            GameTooltip:AddLine(className, 1, 0.82, 0)
+            GameTooltip:AddLine("Left-click: " .. pr.primary.label .. " (+" .. table.concat(pr.primary.on, ", ") .. ")", 0.3, 1, 0.3)
+            GameTooltip:AddLine("Right-click: " .. pr.secondary.label .. " (+" .. table.concat(pr.secondary.on, ", ") .. ")", 1, 0.6, 0.3)
+            GameTooltip:AddLine("Applies to every " .. string.lower(this.classToken) .. " in your group or raid", 0.6, 0.6, 0.6)
+            GameTooltip:Show()
+        end)
+        header:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
+        -- Primary Button
+        local btnPrim = CreateFrame("Button", nil, rowFrame, "UIPanelButtonTemplate")
+        btnPrim:SetWidth(108); btnPrim:SetHeight(20)
+        btnPrim:SetPoint("TOPLEFT", rowFrame, "TOPLEFT", 2, -20)
+        btnPrim:SetText((p and p.primary and p.primary.label) or "Primary")
+        btnPrim.classToken = classToken
+        btnPrim:SetScript("OnClick", function()
+            if UnBot.ApplyRole then UnBot:ApplyRole(this.classToken, "primary") end
+        end)
+        btnPrim:SetScript("OnEnter", function()
+            local pr = (Retinue and Retinue.ROLE_PRESETS and Retinue.ROLE_PRESETS[this.classToken])
+                    or (UnBot.ROLE_PRESETS and UnBot.ROLE_PRESETS[this.classToken])
+            if not pr then return end
+            GameTooltip:SetOwner(this, "ANCHOR_RIGHT")
+            GameTooltip:AddLine("Apply " .. pr.primary.label .. " to all " .. className .. " bots", 1, 0.82, 0)
+            GameTooltip:AddLine("Turns on: +" .. table.concat(pr.primary.on, ", "), 0.3, 1, 0.3)
+            GameTooltip:AddLine("Turns off: -" .. table.concat(pr.primary.off, ", "), 0.9, 0.3, 0.3)
+            GameTooltip:Show()
+        end)
+        btnPrim:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
+        -- Secondary Button
+        local btnSec = CreateFrame("Button", nil, rowFrame, "UIPanelButtonTemplate")
+        btnSec:SetWidth(108); btnSec:SetHeight(20)
+        btnSec:SetPoint("LEFT", btnPrim, "RIGHT", 6, 0)
+        btnSec:SetText((p and p.secondary and p.secondary.label) or "Alternative")
+        btnSec.classToken = classToken
+        btnSec:SetScript("OnClick", function()
+            if UnBot.ApplyRole then UnBot:ApplyRole(this.classToken, "secondary") end
+        end)
+        btnSec:SetScript("OnEnter", function()
+            local pr = (Retinue and Retinue.ROLE_PRESETS and Retinue.ROLE_PRESETS[this.classToken])
+                    or (UnBot.ROLE_PRESETS and UnBot.ROLE_PRESETS[this.classToken])
+            if not pr then return end
+            GameTooltip:SetOwner(this, "ANCHOR_RIGHT")
+            GameTooltip:AddLine("Apply " .. pr.secondary.label .. " to all " .. className .. " bots", 1, 0.82, 0)
+            GameTooltip:AddLine("Turns on: +" .. table.concat(pr.secondary.on, ", "), 0.3, 1, 0.3)
+            GameTooltip:AddLine("Turns off: -" .. table.concat(pr.secondary.off, ", "), 0.9, 0.3, 0.3)
+            GameTooltip:Show()
+        end)
+        btnSec:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
+        v.classRows[i] = rowFrame
+    end
+end
+
+function UnBot:RefreshRolesView()
+    if not self.rolesView or not self.rolesView:IsShown() then return end
+    local v = self.rolesView
+
+    -- 1. Refresh Target Bot
+    local name, classToken
+    if self.GetSelectedRoleTarget then
+        name, classToken = self:GetSelectedRoleTarget()
+    end
+
+    if not name or not classToken then
+        v.targetName = nil
+        v.targetText:SetText("|cffaaaaaaSelect a grouped bot to inspect or toggle its role.|r")
+        v.statusText:SetText("Current combat strategy: |cff777777unavailable|r")
+        if v.btnPrimary then
+            v.btnPrimary:SetText("Primary")
+            v.btnPrimary:Disable()
+        end
+        if v.btnSecondary then
+            v.btnSecondary:SetText("Alternative")
+            v.btnSecondary:Disable()
+        end
+    else
+        local presets = (Retinue and Retinue.ROLE_PRESETS) or (self.ROLE_PRESETS) or {}
+        local preset = presets[classToken]
+        local label = (self.GetBotRoleLabel and self:GetBotRoleLabel(name, classToken)) or "Not checked"
+        local c = (self.GetClassColor and self:GetClassColor(classToken)) or { 1, 1, 1, hex = "ffffffff" }
+        local hex = c.hex or "ffffffff"
+        local className = (self.GetClassName and self:GetClassName(classToken)) or classToken
+
+        v.targetName = name
+        v.targetText:SetText("Selected: |c" .. hex .. name .. "|r (" .. className .. ")")
+        v.statusText:SetText("Current combat strategy: |cffffffff" .. label .. "|r")
+
+        if preset then
+            if v.btnPrimary then
+                v.btnPrimary:SetText(preset.primary.label)
+                v.btnPrimary:Enable()
+            end
+            if v.btnSecondary then
+                v.btnSecondary:SetText(preset.secondary.label)
+                v.btnSecondary:Enable()
+            end
+        else
+            if v.btnPrimary then v.btnPrimary:Disable() end
+            if v.btnSecondary then v.btnSecondary:Disable() end
+        end
+    end
+
+    -- 2. Refresh Class Bot Counts
+    if v.classRows then
+        local totalRows = table.getn(v.classRows)
+        for i = 1, totalRows do
+            local row = v.classRows[i]
+            if row and row.classToken and row.countText then
+                local count = self:GetNumGroupMembersOfClass(row.classToken)
+                if count > 0 then
+                    row.countText:SetText("|cff40a040(" .. count .. " in group)|r")
+                else
+                    row.countText:SetText("|cff666666(0 in group)|r")
+                end
+            end
+        end
+    end
+end
+
+--=========================================================================--
+--  Tab 6: CC Marks View (Crowd Control Assignment)
 --=========================================================================--
 
 function UnBot:CreateCCView(parent)

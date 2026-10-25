@@ -1027,4 +1027,62 @@ function Roles.GetRoleLabel(classId, roleId, fallback)
     return r and r.label or (fallback or tostring(roleId or ""))
 end
 
+Roles.ROLE_ORDER = {
+    "WARRIOR", "PALADIN", "HUNTER", "ROGUE", "PRIEST",
+    "SHAMAN", "MAGE", "WARLOCK", "DRUID",
+}
+
+Roles.ROLE_PRESETS = {
+    WARRIOR = {
+        primary   = { label = "Tank", on = {"protection"}, off = {"arms", "fury"} },
+        secondary = { label = "DPS",  on = {"fury"}, off = {"protection"} },
+    },
+    PALADIN = {
+        primary   = { label = "Heal", on = {"holy"}, off = {"protection", "retribution"} },
+        secondary = { label = "Tank", on = {"protection"}, off = {"holy", "retribution"} },
+    },
+    HUNTER = {
+        primary   = { label = "Marks", on = {"marksmanship"},
+                      off = {"beast mastery", "survival"} },
+        secondary = { label = "Beast", on = {"beast mastery"},
+                      off = {"marksmanship", "survival"} },
+    },
+    ROGUE = {
+        primary   = { label = "Combat",  on = {"combat"},
+                      off = {"subtlety", "assassination"} },
+        secondary = { label = "Subtle", on = {"subtlety"},
+                      off = {"combat", "assassination"} },
+    },
+    PRIEST = {
+        primary   = { label = "Heal",   on = {"holy"},   off = {"shadow"} },
+        secondary = { label = "Shadow", on = {"shadow"}, off = {"holy", "discipline"} },
+    },
+    SHAMAN = {
+        primary   = { label = "Heal", on = {"restoration"},
+                      off = {"elemental", "enhancement"} },
+        secondary = { label = "DPS",  on = {"enhancement"},
+                      off = {"restoration", "elemental"} },
+    },
+    MAGE = {
+        primary   = { label = "Frost", on = {"frost"}, off = {"fire", "arcane"} },
+        secondary = { label = "Fire",  on = {"fire"},  off = {"frost", "arcane"} },
+    },
+    WARLOCK = {
+        primary   = { label = "Destro", on = {"destruction"},
+                      off = {"affliction", "demonology"} },
+        secondary = { label = "Affli",  on = {"affliction"},
+                      off = {"destruction", "demonology"} },
+    },
+    DRUID = {
+        primary   = { label = "Heal", on = {"restoration"},
+                      off = {"balance", "dps feral", "tank feral"} },
+        secondary = { label = "Feral", on = {"dps feral"},
+                      off = {"restoration", "balance"} },
+    },
+}
+
+Retinue.ROLE_ORDER = Roles.ROLE_ORDER
+Retinue.ROLE_PRESETS = Roles.ROLE_PRESETS
+
+
 

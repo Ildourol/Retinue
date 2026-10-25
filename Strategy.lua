@@ -86,7 +86,7 @@ local BEHAVIOR_DEFS = {
 --  Role Presets
 --=========================================================================--
 
-local ROLE_PRESETS = {
+local ROLE_PRESETS = (Retinue and Retinue.ROLE_PRESETS) or {
     WARRIOR = {
         primary   = { label = "Tank", on = {"protection"}, off = {"arms", "fury"} },
         secondary = { label = "DPS",  on = {"fury"}, off = {"protection"} },
@@ -143,10 +143,13 @@ local CLASS_COLOR = {
     DRUID   = {1.00, 0.49, 0.04},
 }
 
-local ROLE_ORDER = {
+local ROLE_ORDER = (Retinue and Retinue.ROLE_ORDER) or {
     "WARRIOR", "PALADIN", "HUNTER", "ROGUE", "PRIEST",
     "SHAMAN", "MAGE", "WARLOCK", "DRUID",
 }
+
+UnBot.ROLE_PRESETS = ROLE_PRESETS
+UnBot.ROLE_ORDER = ROLE_ORDER
 
 local CLASS_NORMALIZATION = {
     ["WARRIOR"] = "WARRIOR", ["PALADIN"] = "PALADIN", ["HUNTER"]  = "HUNTER",
@@ -273,6 +276,9 @@ function UnBot:ApplyRole(classToken, which)
         if UnBotRoleFrame and UnBotRoleFrame:IsShown() then
             self:RefreshRoleTarget(false)
         end
+        if self.rolesView and self.rolesView:IsShown() then
+            self:RefreshRolesView()
+        end
     end
 end
 
@@ -294,6 +300,9 @@ function UnBot:ApplySelectedRole(which)
     if self:QueueRoleForBot(name, classToken, which, true) then
         if UnBotRoleFrame then
             UnBotRoleFrame.statusText:SetText("Applying: "..role.label.."...")
+        end
+        if self.rolesView and self.rolesView.statusText then
+            self.rolesView.statusText:SetText("Applying: |cffffffff"..role.label.."...|r")
         end
         self:Message(role.label.." combat strategy applied to "..name)
     end
@@ -375,6 +384,7 @@ function UnBot:ParseCombatStrategies(sender, msg)
     end
 
     if UnBotRoleFrame and UnBotRoleFrame:IsShown() then self:RefreshRoleTarget(false) end
+    if self.rolesView and self.rolesView:IsShown() then self:RefreshRolesView() end
     if UnBotStrategyFrame and UnBotStrategyFrame:IsShown() then
         if self.RefreshBehaviorView and (self.strategyMode == "behavior" or (UnBotStrategyFrame.behaviorPanel and UnBotStrategyFrame.behaviorPanel:IsShown())) then
             self:RefreshBehaviorView()
@@ -922,16 +932,22 @@ end
 --=========================================================================--
 
 function UnBot:ToggleRoleBar()
-    if not UnBotRoleFrame then self:CreateRoleFrame() end
-    if UnBotRoleFrame:IsShown() then
-        UnBotRoleFrame:Hide()
+    if not UnBotRosterFrame then self:CreateRosterFrame() end
+    if UnBotRosterFrame:IsShown() and self.activeRosterTab == "roles" then
+        UnBotRosterFrame:Hide()
     else
-        UnBotRoleFrame:Show()
-        self:RefreshRoleTarget(false)
+        if not UnBotRosterFrame:IsShown() then
+            UnBotRosterFrame:Show()
+            self:ScanGroupBots()
+        end
+        self:SelectRosterTab("roles")
     end
 end
 
 function UnBot:RefreshRoleTarget(queryServer)
+    if self.rolesView and self.rolesView:IsShown() then
+        self:RefreshRolesView()
+    end
     if not UnBotRoleFrame then return end
     local name, classToken = self:GetSelectedRoleTarget()
     if not name then
@@ -1077,6 +1093,9 @@ function UnBot:CreateRoleFrame()
     events:SetScript("OnEvent", function()
         if UnBotRoleFrame and UnBotRoleFrame:IsShown() then
             UnBot:RefreshRoleTarget(false)
+        end
+        if UnBot.rolesView and UnBot.rolesView:IsShown() then
+            UnBot:RefreshRolesView()
         end
     end)
     self:RefreshRoleTarget(false)
