@@ -438,6 +438,95 @@ function UnBot:ShowSpellWindow()
     SendChatMessage("spells", "WHISPER", nil, target)
 end
 
+--=========================================================================--
+--  Reusable ScrollBar Component
+--=========================================================================--
+
+local function CreateScrollBar(parent, name, x, y, width, height, onScroll)
+    local frame = CreateFrame("Frame", name .. "Container", parent)
+    frame:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y)
+    frame:SetWidth(width)
+    frame:SetHeight(height)
+
+    local btnHeight = 16
+    if width < 16 then btnHeight = width end
+
+    local upBtn = CreateFrame("Button", name .. "Up", frame, "UIPanelButtonTemplate")
+    upBtn:SetWidth(width)
+    upBtn:SetHeight(btnHeight)
+    upBtn:SetPoint("TOP", frame, "TOP", 0, 0)
+    upBtn:SetText("^")
+    upBtn:SetScript("OnClick", function()
+        if onScroll then onScroll(-1) end
+    end)
+    frame.upBtn = upBtn
+
+    local downBtn = CreateFrame("Button", name .. "Down", frame, "UIPanelButtonTemplate")
+    downBtn:SetWidth(width)
+    downBtn:SetHeight(btnHeight)
+    downBtn:SetPoint("BOTTOM", frame, "BOTTOM", 0, 0)
+    downBtn:SetText("v")
+    downBtn:SetScript("OnClick", function()
+        if onScroll then onScroll(1) end
+    end)
+    frame.downBtn = downBtn
+
+    local slider = CreateFrame("Slider", name .. "Slider", frame)
+    slider:SetWidth(width - 4)
+    slider:SetPoint("TOP", upBtn, "BOTTOM", 0, -2)
+    slider:SetPoint("BOTTOM", downBtn, "TOP", 0, 2)
+    slider:SetOrientation("VERTICAL")
+    slider:SetMinMaxValues(0, 0)
+    slider:SetValueStep(1)
+    slider:SetValue(0)
+    slider:SetThumbTexture("Interface\\Buttons\\UI-ScrollBar-Knob")
+    slider:SetBackdrop({
+        bgFile   = "Interface\\Tooltips\\UI-Tooltip-Background",
+        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+        tile = true, tileSize = 8, edgeSize = 8,
+        insets = { left = 1, right = 1, top = 1, bottom = 1 }
+    })
+    slider:SetBackdropColor(0.1, 0.1, 0.1, 0.6)
+
+    slider:SetScript("OnValueChanged", function()
+        local val = math.floor(this:GetValue() + 0.5)
+        if frame.currentValue ~= val then
+            frame.currentValue = val
+            if frame.onValueChanged then frame.onValueChanged(val) end
+        end
+    end)
+    frame.slider = slider
+
+    frame:EnableMouseWheel(true)
+    frame:SetScript("OnMouseWheel", function()
+        if onScroll then onScroll(-arg1) end
+    end)
+    slider:EnableMouseWheel(true)
+    slider:SetScript("OnMouseWheel", function()
+        if onScroll then onScroll(-arg1) end
+    end)
+
+    function frame:Update(current, maxVal)
+        if maxVal < 0 then maxVal = 0 end
+        if current < 0 then current = 0 end
+        if current > maxVal then current = maxVal end
+        self.slider:SetMinMaxValues(0, maxVal)
+        self.currentValue = current
+        self.slider:SetValue(current)
+        if maxVal > 0 then
+            self.slider:Show()
+            self.upBtn:Enable()
+            self.downBtn:Enable()
+        else
+            self.slider:Hide()
+            self.upBtn:Disable()
+            self.downBtn:Disable()
+        end
+    end
+
+    return frame
+end
+
 function UnBot:CreateSpellFrame()
     local f = CreateFrame("Frame", "UnBotSpellFrame", UIParent)
     f:SetWidth(380)
@@ -464,6 +553,13 @@ function UnBot:CreateSpellFrame()
     title:SetPoint("TOP", f, "TOP", 0, -14)
     title:SetTextColor(1, 0.82, 0)
     f.title = title
+
+    local scrollIndicator = f:CreateFontString("UnBotSpellScrollIndicator", "OVERLAY")
+    scrollIndicator:SetFont(UnBotFont or "Fonts\\FRIZQT__.TTF", 10)
+    scrollIndicator:SetPoint("TOPRIGHT", f, "TOPRIGHT", -38, -16)
+    scrollIndicator:SetTextColor(0.65, 0.65, 0.65)
+    scrollIndicator:SetText("")
+    f.scrollIndicator = scrollIndicator
 
     local close = CreateFrame("Button", "UnBotSpellClose", f, "UIPanelCloseButton")
     close:SetPoint("TOPRIGHT", f, "TOPRIGHT", -8, -8)
@@ -616,11 +712,15 @@ function UnBot:CreateSpellRows(parent)
 
     for i = 1, ROW_COUNT do
         local row = CreateFrame("Button", "UnBotSpellRow"..i, parent)
-        row:SetWidth(344)
+        row:SetWidth(326)
         row:SetHeight(ROW_HEIGHT)
         row:SetPoint("TOPLEFT", parent, "TOPLEFT", 18, -88 - (i - 1) * ROW_HEIGHT)
         row:RegisterForClicks("LeftButtonUp", "RightButtonUp")
         row:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight", "ADD")
+        row:EnableMouseWheel(true)
+        row:SetScript("OnMouseWheel", function()
+            UnBot:ScrollSpells(-arg1)
+        end)
 
         local text = row:CreateFontString(nil, "OVERLAY")
         text:SetFont(UnBotFont or "Fonts\\FRIZQT__.TTF", 11)
@@ -655,6 +755,15 @@ function UnBot:CreateSpellRows(parent)
         row:Hide()
         self.spellRows[i] = row
     end
+
+    local scrollbar = CreateScrollBar(parent, "UnBotSpellScroll", 348, -88, 16, ROW_COUNT * ROW_HEIGHT, function(delta)
+        UnBot:ScrollSpells(delta)
+    end)
+    scrollbar.onValueChanged = function(val)
+        UnBot.spellOffset = val
+        UnBot:RefreshSpells()
+    end
+    parent.scrollBar = scrollbar
 end
 
 function UnBot:CastSpell(name)
@@ -725,6 +834,30 @@ function UnBot:RefreshSpells()
     self:UpdateFilterChips()
 
     local rows = self:GetSpellRows()
+    local total = table.getn(rows)
+    local maxOffset = total - ROW_COUNT
+    if maxOffset < 0 then maxOffset = 0 end
+
+    if self.spellOffset > maxOffset then self.spellOffset = maxOffset end
+    if self.spellOffset < 0 then self.spellOffset = 0 end
+
+    -- Update Scrolling UI indicator
+    local scrollText = ""
+    if total == 0 then
+        scrollText = "(0)"
+    else
+        local startIdx = self.spellOffset + 1
+        local endIdx = math.min(self.spellOffset + ROW_COUNT, total)
+        scrollText = "(" .. startIdx .. "-" .. endIdx .. "/" .. total .. ")"
+    end
+
+    if f.scrollIndicator then
+        f.scrollIndicator:SetText("|cff888888" .. scrollText .. "|r")
+    end
+
+    if f.scrollBar then
+        f.scrollBar:Update(self.spellOffset, maxOffset)
+    end
 
     for i = 1, ROW_COUNT do
         local row   = self.spellRows[i]
@@ -756,11 +889,10 @@ function UnBot:RefreshSpells()
         end
     end
 
-    local total = table.getn(self.spellList or {})
-    if total == 0 then
+    local totalSpells = table.getn(self.spellList or {})
+    if totalSpells == 0 then
         f.hint:SetText("Waiting for " .. (self.spellTarget or "the bot") .. "...")
     else
-        local showing = table.getn(rows)
-        f.hint:SetText(total .. " spells known (" .. showing .. " rows visible)  Click spell to cast")
+        f.hint:SetText(totalSpells .. " spells known (" .. total .. " rows visible, " .. scrollText .. ")  Click spell to cast")
     end
 end

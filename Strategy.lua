@@ -1249,6 +1249,95 @@ function UnBot:ToggleStrategyDual(stratName, mode)
     end
 end
 
+--=========================================================================--
+--  Reusable ScrollBar Component
+--=========================================================================--
+
+local function CreateScrollBar(parent, name, x, y, width, height, onScroll)
+    local frame = CreateFrame("Frame", name .. "Container", parent)
+    frame:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y)
+    frame:SetWidth(width)
+    frame:SetHeight(height)
+
+    local btnHeight = 16
+    if width < 16 then btnHeight = width end
+
+    local upBtn = CreateFrame("Button", name .. "Up", frame, "UIPanelButtonTemplate")
+    upBtn:SetWidth(width)
+    upBtn:SetHeight(btnHeight)
+    upBtn:SetPoint("TOP", frame, "TOP", 0, 0)
+    upBtn:SetText("^")
+    upBtn:SetScript("OnClick", function()
+        if onScroll then onScroll(-1) end
+    end)
+    frame.upBtn = upBtn
+
+    local downBtn = CreateFrame("Button", name .. "Down", frame, "UIPanelButtonTemplate")
+    downBtn:SetWidth(width)
+    downBtn:SetHeight(btnHeight)
+    downBtn:SetPoint("BOTTOM", frame, "BOTTOM", 0, 0)
+    downBtn:SetText("v")
+    downBtn:SetScript("OnClick", function()
+        if onScroll then onScroll(1) end
+    end)
+    frame.downBtn = downBtn
+
+    local slider = CreateFrame("Slider", name .. "Slider", frame)
+    slider:SetWidth(width - 4)
+    slider:SetPoint("TOP", upBtn, "BOTTOM", 0, -2)
+    slider:SetPoint("BOTTOM", downBtn, "TOP", 0, 2)
+    slider:SetOrientation("VERTICAL")
+    slider:SetMinMaxValues(0, 0)
+    slider:SetValueStep(1)
+    slider:SetValue(0)
+    slider:SetThumbTexture("Interface\\Buttons\\UI-ScrollBar-Knob")
+    slider:SetBackdrop({
+        bgFile   = "Interface\\Tooltips\\UI-Tooltip-Background",
+        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+        tile = true, tileSize = 8, edgeSize = 8,
+        insets = { left = 1, right = 1, top = 1, bottom = 1 }
+    })
+    slider:SetBackdropColor(0.1, 0.1, 0.1, 0.6)
+
+    slider:SetScript("OnValueChanged", function()
+        local val = math.floor(this:GetValue() + 0.5)
+        if frame.currentValue ~= val then
+            frame.currentValue = val
+            if frame.onValueChanged then frame.onValueChanged(val) end
+        end
+    end)
+    frame.slider = slider
+
+    frame:EnableMouseWheel(true)
+    frame:SetScript("OnMouseWheel", function()
+        if onScroll then onScroll(-arg1) end
+    end)
+    slider:EnableMouseWheel(true)
+    slider:SetScript("OnMouseWheel", function()
+        if onScroll then onScroll(-arg1) end
+    end)
+
+    function frame:Update(current, maxVal)
+        if maxVal < 0 then maxVal = 0 end
+        if current < 0 then current = 0 end
+        if current > maxVal then current = maxVal end
+        self.slider:SetMinMaxValues(0, maxVal)
+        self.currentValue = current
+        self.slider:SetValue(current)
+        if maxVal > 0 then
+            self.slider:Show()
+            self.upBtn:Enable()
+            self.downBtn:Enable()
+        else
+            self.slider:Hide()
+            self.upBtn:Disable()
+            self.downBtn:Disable()
+        end
+    end
+
+    return frame
+end
+
 function UnBot:CreateDualStrategyPanel(parent)
     local dp = CreateFrame("Frame", "UnBotStrategyDualPanel", parent)
     dp:SetPoint("TOPLEFT", parent, "TOPLEFT", 14, -66)
@@ -1273,19 +1362,27 @@ function UnBot:CreateDualStrategyPanel(parent)
     leftTitle:SetText("Combat Strategies (co)")
     leftCol.title = leftTitle
 
+    local leftIndicator = leftCol:CreateFontString(nil, "OVERLAY")
+    leftIndicator:SetFont(UnBotFont or "Fonts\\FRIZQT__.TTF", 10)
+    leftIndicator:SetPoint("LEFT", leftTitle, "RIGHT", 6, 0)
+    leftIndicator:SetTextColor(0.65, 0.65, 0.65)
+    leftIndicator:SetText("")
+    leftCol.scrollIndicator = leftIndicator
+
     local leftUp = CreateFrame("Button", nil, leftCol, "UIPanelButtonTemplate")
-    leftUp:SetWidth(20); leftUp:SetHeight(16)
-    leftUp:SetPoint("TOPRIGHT", leftCol, "TOPRIGHT", -26, 2)
+    leftUp:SetWidth(18); leftUp:SetHeight(16)
+    leftUp:SetPoint("TOPRIGHT", leftCol, "TOPRIGHT", -22, 2)
     leftUp:SetText("^")
     leftUp:SetScript("OnClick", function()
         UnBot.dualCombatOffset = (UnBot.dualCombatOffset or 0) - 1
         if UnBot.dualCombatOffset < 0 then UnBot.dualCombatOffset = 0 end
         UnBot:RefreshDualStrategyView()
     end)
+    leftCol.leftUp = leftUp
 
     local leftDown = CreateFrame("Button", nil, leftCol, "UIPanelButtonTemplate")
-    leftDown:SetWidth(20); leftDown:SetHeight(16)
-    leftDown:SetPoint("TOPRIGHT", leftCol, "TOPRIGHT", -4, 2)
+    leftDown:SetWidth(18); leftDown:SetHeight(16)
+    leftDown:SetPoint("TOPRIGHT", leftCol, "TOPRIGHT", -2, 2)
     leftDown:SetText("v")
     leftDown:SetScript("OnClick", function()
         local total = table.getn(UnBot:GetDualStrategies("co"))
@@ -1295,6 +1392,7 @@ function UnBot:CreateDualStrategyPanel(parent)
         if UnBot.dualCombatOffset > maxOff then UnBot.dualCombatOffset = maxOff end
         UnBot:RefreshDualStrategyView()
     end)
+    leftCol.leftDown = leftDown
 
     leftCol:EnableMouseWheel(true)
     leftCol:SetScript("OnMouseWheel", function()
@@ -1310,11 +1408,21 @@ function UnBot:CreateDualStrategyPanel(parent)
     leftCol.rows = {}
     for i = 1, VISIBLE_ROWS do
         local btn = CreateFrame("Button", "UnBotDualCombatRow" .. i, leftCol)
-        btn:SetWidth(238)
+        btn:SetWidth(222)
         btn:SetHeight(ROW_HEIGHT)
         btn:SetPoint("TOPLEFT", leftCol, "TOPLEFT", 2, -20 - (i - 1) * ROW_HEIGHT)
         btn:RegisterForClicks("LeftButtonUp")
         btn:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight", "ADD")
+        btn:EnableMouseWheel(true)
+        btn:SetScript("OnMouseWheel", function()
+            local total = table.getn(UnBot:GetDualStrategies("co"))
+            local maxOff = total - VISIBLE_ROWS
+            if maxOff < 0 then maxOff = 0 end
+            UnBot.dualCombatOffset = (UnBot.dualCombatOffset or 0) - arg1
+            if UnBot.dualCombatOffset < 0 then UnBot.dualCombatOffset = 0 end
+            if UnBot.dualCombatOffset > maxOff then UnBot.dualCombatOffset = maxOff end
+            UnBot:RefreshDualStrategyView()
+        end)
 
         local bg = btn:CreateTexture(nil, "BACKGROUND")
         bg:SetAllPoints(btn)
@@ -1357,6 +1465,21 @@ function UnBot:CreateDualStrategyPanel(parent)
         leftCol.rows[i] = btn
     end
 
+    local leftScroll = CreateScrollBar(leftCol, "UnBotDualCombatScroll", 226, -20, 14, VISIBLE_ROWS * ROW_HEIGHT, function(delta)
+        local total = table.getn(UnBot:GetDualStrategies("co"))
+        local maxOff = total - VISIBLE_ROWS
+        if maxOff < 0 then maxOff = 0 end
+        UnBot.dualCombatOffset = (UnBot.dualCombatOffset or 0) + delta
+        if UnBot.dualCombatOffset < 0 then UnBot.dualCombatOffset = 0 end
+        if UnBot.dualCombatOffset > maxOff then UnBot.dualCombatOffset = maxOff end
+        UnBot:RefreshDualStrategyView()
+    end)
+    leftScroll.onValueChanged = function(val)
+        UnBot.dualCombatOffset = val
+        UnBot:RefreshDualStrategyView()
+    end
+    leftCol.scrollBar = leftScroll
+
     -- Right Column: Non-combat Strategies (nc)
     local rightCol = CreateFrame("Frame", "UnBotStrategyColRight", dp)
     rightCol:SetPoint("TOPLEFT", dp, "TOPLEFT", 248, 0)
@@ -1371,19 +1494,27 @@ function UnBot:CreateDualStrategyPanel(parent)
     rightTitle:SetText("Non-combat Strategies (nc)")
     rightCol.title = rightTitle
 
+    local rightIndicator = rightCol:CreateFontString(nil, "OVERLAY")
+    rightIndicator:SetFont(UnBotFont or "Fonts\\FRIZQT__.TTF", 10)
+    rightIndicator:SetPoint("LEFT", rightTitle, "RIGHT", 6, 0)
+    rightIndicator:SetTextColor(0.65, 0.65, 0.65)
+    rightIndicator:SetText("")
+    rightCol.scrollIndicator = rightIndicator
+
     local rightUp = CreateFrame("Button", nil, rightCol, "UIPanelButtonTemplate")
-    rightUp:SetWidth(20); rightUp:SetHeight(16)
-    rightUp:SetPoint("TOPRIGHT", rightCol, "TOPRIGHT", -26, 2)
+    rightUp:SetWidth(18); rightUp:SetHeight(16)
+    rightUp:SetPoint("TOPRIGHT", rightCol, "TOPRIGHT", -22, 2)
     rightUp:SetText("^")
     rightUp:SetScript("OnClick", function()
         UnBot.dualNonCombatOffset = (UnBot.dualNonCombatOffset or 0) - 1
         if UnBot.dualNonCombatOffset < 0 then UnBot.dualNonCombatOffset = 0 end
         UnBot:RefreshDualStrategyView()
     end)
+    rightCol.rightUp = rightUp
 
     local rightDown = CreateFrame("Button", nil, rightCol, "UIPanelButtonTemplate")
-    rightDown:SetWidth(20); rightDown:SetHeight(16)
-    rightDown:SetPoint("TOPRIGHT", rightCol, "TOPRIGHT", -4, 2)
+    rightDown:SetWidth(18); rightDown:SetHeight(16)
+    rightDown:SetPoint("TOPRIGHT", rightCol, "TOPRIGHT", -2, 2)
     rightDown:SetText("v")
     rightDown:SetScript("OnClick", function()
         local total = table.getn(UnBot:GetDualStrategies("nc"))
@@ -1393,6 +1524,7 @@ function UnBot:CreateDualStrategyPanel(parent)
         if UnBot.dualNonCombatOffset > maxOff then UnBot.dualNonCombatOffset = maxOff end
         UnBot:RefreshDualStrategyView()
     end)
+    rightCol.rightDown = rightDown
 
     rightCol:EnableMouseWheel(true)
     rightCol:SetScript("OnMouseWheel", function()
@@ -1408,11 +1540,21 @@ function UnBot:CreateDualStrategyPanel(parent)
     rightCol.rows = {}
     for i = 1, VISIBLE_ROWS do
         local btn = CreateFrame("Button", "UnBotDualNonCombatRow" .. i, rightCol)
-        btn:SetWidth(238)
+        btn:SetWidth(222)
         btn:SetHeight(ROW_HEIGHT)
         btn:SetPoint("TOPLEFT", rightCol, "TOPLEFT", 2, -20 - (i - 1) * ROW_HEIGHT)
         btn:RegisterForClicks("LeftButtonUp")
         btn:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight", "ADD")
+        btn:EnableMouseWheel(true)
+        btn:SetScript("OnMouseWheel", function()
+            local total = table.getn(UnBot:GetDualStrategies("nc"))
+            local maxOff = total - VISIBLE_ROWS
+            if maxOff < 0 then maxOff = 0 end
+            UnBot.dualNonCombatOffset = (UnBot.dualNonCombatOffset or 0) - arg1
+            if UnBot.dualNonCombatOffset < 0 then UnBot.dualNonCombatOffset = 0 end
+            if UnBot.dualNonCombatOffset > maxOff then UnBot.dualNonCombatOffset = maxOff end
+            UnBot:RefreshDualStrategyView()
+        end)
 
         local bg = btn:CreateTexture(nil, "BACKGROUND")
         bg:SetAllPoints(btn)
@@ -1455,6 +1597,21 @@ function UnBot:CreateDualStrategyPanel(parent)
         rightCol.rows[i] = btn
     end
 
+    local rightScroll = CreateScrollBar(rightCol, "UnBotDualNonCombatScroll", 226, -20, 14, VISIBLE_ROWS * ROW_HEIGHT, function(delta)
+        local total = table.getn(UnBot:GetDualStrategies("nc"))
+        local maxOff = total - VISIBLE_ROWS
+        if maxOff < 0 then maxOff = 0 end
+        UnBot.dualNonCombatOffset = (UnBot.dualNonCombatOffset or 0) + delta
+        if UnBot.dualNonCombatOffset < 0 then UnBot.dualNonCombatOffset = 0 end
+        if UnBot.dualNonCombatOffset > maxOff then UnBot.dualNonCombatOffset = maxOff end
+        UnBot:RefreshDualStrategyView()
+    end)
+    rightScroll.onValueChanged = function(val)
+        UnBot.dualNonCombatOffset = val
+        UnBot:RefreshDualStrategyView()
+    end
+    rightCol.scrollBar = rightScroll
+
     dp:Hide()
     parent.dualPanel = dp
 end
@@ -1471,8 +1628,37 @@ function UnBot:RefreshDualStrategyView()
     -- Left Column: Combat Strategies
     local coRec = self.botCombatStrategies and (self.botCombatStrategies[cleanBot] or self.botCombatStrategies[bot])
     local coList = self:GetDualStrategies("co")
-    local coOffset = self.dualCombatOffset or 0
+    local coTotal = table.getn(coList)
     local VISIBLE_ROWS = 14
+    local coMaxOff = coTotal - VISIBLE_ROWS
+    if coMaxOff < 0 then coMaxOff = 0 end
+
+    local coOffset = self.dualCombatOffset or 0
+    if coOffset > coMaxOff then coOffset = coMaxOff end
+    if coOffset < 0 then coOffset = 0 end
+    self.dualCombatOffset = coOffset
+
+    -- Update Combat scrolling UI indicator
+    if dp.leftCol and dp.leftCol.scrollIndicator then
+        if coTotal == 0 then
+            dp.leftCol.scrollIndicator:SetText("|cff888888(0)|r")
+        else
+            local startIdx = coOffset + 1
+            local endIdx = math.min(coOffset + VISIBLE_ROWS, coTotal)
+            dp.leftCol.scrollIndicator:SetText("|cff888888(" .. startIdx .. "-" .. endIdx .. "/" .. coTotal .. ")|r")
+        end
+    end
+
+    if dp.leftCol and dp.leftCol.scrollBar then
+        dp.leftCol.scrollBar:Update(coOffset, coMaxOff)
+    end
+
+    if dp.leftCol and dp.leftCol.leftUp then
+        if coOffset > 0 then dp.leftCol.leftUp:Enable() else dp.leftCol.leftUp:Disable() end
+    end
+    if dp.leftCol and dp.leftCol.leftDown then
+        if coOffset < coMaxOff then dp.leftCol.leftDown:Enable() else dp.leftCol.leftDown:Disable() end
+    end
 
     for i = 1, VISIBLE_ROWS do
         local btn = dp.leftCol.rows[i]
@@ -1499,7 +1685,36 @@ function UnBot:RefreshDualStrategyView()
     -- Right Column: Non-combat Strategies
     local ncRec = self.botNonCombatStrategies and (self.botNonCombatStrategies[cleanBot] or self.botNonCombatStrategies[bot])
     local ncList = self:GetDualStrategies("nc")
+    local ncTotal = table.getn(ncList)
+    local ncMaxOff = ncTotal - VISIBLE_ROWS
+    if ncMaxOff < 0 then ncMaxOff = 0 end
+
     local ncOffset = self.dualNonCombatOffset or 0
+    if ncOffset > ncMaxOff then ncOffset = ncMaxOff end
+    if ncOffset < 0 then ncOffset = 0 end
+    self.dualNonCombatOffset = ncOffset
+
+    -- Update Non-combat scrolling UI indicator
+    if dp.rightCol and dp.rightCol.scrollIndicator then
+        if ncTotal == 0 then
+            dp.rightCol.scrollIndicator:SetText("|cff888888(0)|r")
+        else
+            local startIdx = ncOffset + 1
+            local endIdx = math.min(ncOffset + VISIBLE_ROWS, ncTotal)
+            dp.rightCol.scrollIndicator:SetText("|cff888888(" .. startIdx .. "-" .. endIdx .. "/" .. ncTotal .. ")|r")
+        end
+    end
+
+    if dp.rightCol and dp.rightCol.scrollBar then
+        dp.rightCol.scrollBar:Update(ncOffset, ncMaxOff)
+    end
+
+    if dp.rightCol and dp.rightCol.rightUp then
+        if ncOffset > 0 then dp.rightCol.rightUp:Enable() else dp.rightCol.rightUp:Disable() end
+    end
+    if dp.rightCol and dp.rightCol.rightDown then
+        if ncOffset < ncMaxOff then dp.rightCol.rightDown:Enable() else dp.rightCol.rightDown:Disable() end
+    end
 
     for i = 1, VISIBLE_ROWS do
         local btn = dp.rightCol.rows[i]
@@ -1610,11 +1825,15 @@ function UnBot:CreateStrategyRows(parent)
 
     for i = 1, ROW_COUNT do
         local row = CreateFrame("Button", "UnBotStrategyRow"..i, parent)
-        row:SetWidth(482)
+        row:SetWidth(464)
         row:SetHeight(ROW_HEIGHT)
         row:SetPoint("TOPLEFT", parent, "TOPLEFT", 18, -68 - (i - 1) * ROW_HEIGHT)
         row:RegisterForClicks("LeftButtonUp", "RightButtonUp")
         row:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight", "ADD")
+        row:EnableMouseWheel(true)
+        row:SetScript("OnMouseWheel", function()
+            UnBot:ScrollStrategies(-arg1)
+        end)
 
         local text = row:CreateFontString(nil, "OVERLAY")
         text:SetFont(UnBotFont or "Fonts\\FRIZQT__.TTF", 11)
@@ -1666,6 +1885,16 @@ function UnBot:CreateStrategyRows(parent)
         row:Hide()
         self.strategyRows[i] = row
     end
+
+    local scrollbar = CreateScrollBar(parent, "UnBotStrategyScroll", 488, -68, 16, ROW_COUNT * ROW_HEIGHT, function(delta)
+        UnBot:ScrollStrategies(delta)
+    end)
+    scrollbar.onValueChanged = function(val)
+        UnBot.strategyOffset = val
+        UnBot:RefreshStrategies()
+    end
+    scrollbar:Hide()
+    parent.scrollBar = scrollbar
 end
 
 --=========================================================================--
@@ -1986,6 +2215,7 @@ function UnBot:RefreshStrategies()
     local bot = self.strategyTarget or (self.GetBotTarget and self:GetBotTarget()) or (UnitIsPlayer("target") and UnitName("target")) or "?"
 
     if self.strategyMode == "dual" then
+        if f.scrollBar then f.scrollBar:Hide() end
         if f.tabDual then f.tabDual:LockHighlight() end
         f.tabCombat:UnlockHighlight()
         f.tabNon:UnlockHighlight()
@@ -2005,6 +2235,7 @@ function UnBot:RefreshStrategies()
     end
 
     if self.strategyMode == "behavior" then
+        if f.scrollBar then f.scrollBar:Hide() end
         if f.tabDual then f.tabDual:UnlockHighlight() end
         f.tabCombat:UnlockHighlight()
         f.tabNon:UnlockHighlight()
@@ -2028,7 +2259,26 @@ function UnBot:RefreshStrategies()
 
     local label = "Combat"
     if self.strategyMode == "nc" then label = "Non-combat" end
-    f.title:SetText(bot .. "  -  " .. label .. " strategies")
+
+    local rows = self:GetStrategyRows()
+    local total = table.getn(rows)
+    local maxOffset = total - ROW_COUNT
+    if maxOffset < 0 then maxOffset = 0 end
+    if self.strategyOffset > maxOffset then self.strategyOffset = maxOffset end
+    if self.strategyOffset < 0 then self.strategyOffset = 0 end
+
+    local scrollText = ""
+    if total > 0 then
+        local startIdx = self.strategyOffset + 1
+        local endIdx = math.min(self.strategyOffset + ROW_COUNT, total)
+        scrollText = "  |cff888888(" .. startIdx .. "-" .. endIdx .. "/" .. total .. ")|r"
+    end
+    f.title:SetText(bot .. "  -  " .. label .. " strategies" .. scrollText)
+
+    if f.scrollBar then
+        f.scrollBar:Show()
+        f.scrollBar:Update(self.strategyOffset, maxOffset)
+    end
 
     if f.tabDual then f.tabDual:UnlockHighlight() end
     f.tabBehavior:UnlockHighlight()

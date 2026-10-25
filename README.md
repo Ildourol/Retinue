@@ -55,7 +55,7 @@ An elegant, high-performance in-game graphical control suite built specifically 
 
 ### 🧠 Dynamic Strategy & Bot Behaviour Editor
 - **4 Navigation Modes**: `[Strategies]` (parallel dual-column overview), `[Combat]` (`co`), `[Non-combat]` (`nc`), and dedicated `[Behaviour]` (`behavior`).
-- **Parallel Dual-Column Overview**: Side-by-side 242px columns for Combat and Non-combat strategies with independent scroll steppers and mousewheel scrolling.
+- **Parallel Dual-Column Overview**: Side-by-side 242px columns for Combat and Non-combat strategies with independent scroll steppers, live scrolling UI range indicators (`(1-14/X)`), full vertical scrollbars, and mousewheel scrolling.
 - **Soft Muted Status Indicators**: Calm, non-intense green (`|cff40a040●|r`, `[ON]`) and red (`|cffa04040○|r`, `[OFF]`) indicators to eliminate visual fatigue.
 - **Dynamic Multi-Channel Dispatch**: Strategy toggles deliver intelligently via WHISPER (when bot is targeted or inspected), PARTY (when in a group), or SAY fallback with optimistic state updating.
 - **Dedicated Behaviour Options Panel**: Toggle core combat and survival habits (Loot corpses, AoE spells, Auto CC, Save mana, Offensive Cooldowns, Threat throttling, Potions, Spread out, Mimic consumables) with live green `[ ON ]` vs grey `[ OFF ]` status lamps and real-time state querying.
@@ -82,7 +82,7 @@ An elegant, high-performance in-game graphical control suite built specifically 
   - **Right-Click**: Assigns secondary roles (DPS / Utility).
 
 ### 🔮 Spellbook & Buff Management
-- Browse abilities known by the targeted companion.
+- Browse abilities known by the targeted companion with live scrolling range indicator (`(1-16/X)`) and vertical scrollbar.
 - **Click to Blacklist**: Prevents bots from casting unwanted or situational spells in specific raid encounters (`nc -<spell>` / `nc +<spell>`).
 
 ### 🔘 360° Draggable Minimap Button
