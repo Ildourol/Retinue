@@ -58,8 +58,7 @@ function UnBot:GetPartyTank()
     local target = UnitName("target")
     if target and (not checkValid or checkValid(target)) and (UnitInParty("target") or UnitInRaid("target")) and not UnitIsUnit("target", "player") then
         local _, classToken = UnitClass("target")
-        local role = (RetinueConfig and RetinueConfig.botRoles and RetinueConfig.botRoles[target])
-            or (Retinue and Retinue.Roles and Retinue.Roles.GetBotRole and Retinue.Roles.GetBotRole(target, classToken))
+        local role = (Retinue and Retinue.Roles and Retinue.Roles.GetBotRole and Retinue.Roles.GetBotRole(target, classToken))
         if role == "tank" then return target end
     end
     if UnitInRaid("player") then
@@ -68,8 +67,7 @@ function UnBot:GetPartyTank()
             local name = UnitName("raid"..i)
             if name and (not checkValid or checkValid(name)) and not UnitIsUnit("raid"..i, "player") then
                 local _, classToken = UnitClass("raid"..i)
-                local role = (RetinueConfig and RetinueConfig.botRoles and RetinueConfig.botRoles[name])
-                    or (Retinue and Retinue.Roles and Retinue.Roles.GetBotRole and Retinue.Roles.GetBotRole(name, classToken))
+                local role = (Retinue and Retinue.Roles and Retinue.Roles.GetBotRole and Retinue.Roles.GetBotRole(name, classToken))
                 if role == "tank" then return name end
             end
         end
@@ -79,8 +77,7 @@ function UnBot:GetPartyTank()
             local name = UnitName("party"..i)
             if name and (not checkValid or checkValid(name)) then
                 local _, classToken = UnitClass("party"..i)
-                local role = (RetinueConfig and RetinueConfig.botRoles and RetinueConfig.botRoles[name])
-                    or (Retinue and Retinue.Roles and Retinue.Roles.GetBotRole and Retinue.Roles.GetBotRole(name, classToken))
+                local role = (Retinue and Retinue.Roles and Retinue.Roles.GetBotRole and Retinue.Roles.GetBotRole(name, classToken))
                 if role == "tank" then return name end
             end
         end
@@ -92,6 +89,39 @@ function UnBot:GetPartyTank()
         if name and (not checkValid or checkValid(name)) then
             local _, classToken = UnitClass("party"..i)
             if classToken == "WARRIOR" then return name end
+        end
+    end
+    return nil
+end
+
+-- Resolves the designated healer bot in the party/raid
+function UnBot:GetPartyHealer()
+    local checkValid = IsValidCharacterName or (UnBot and UnBot.IsValidCharacterName)
+    local target = UnitName("target")
+    if target and (not checkValid or checkValid(target)) and (UnitInParty("target") or UnitInRaid("target")) and not UnitIsUnit("target", "player") then
+        local _, classToken = UnitClass("target")
+        local role = (Retinue and Retinue.Roles and Retinue.Roles.GetBotRole and Retinue.Roles.GetBotRole(target, classToken))
+        if role == "heal" then return target end
+    end
+    if UnitInRaid("player") then
+        local n = GetNumRaidMembers()
+        for i = 1, n do
+            local name = UnitName("raid"..i)
+            if name and (not checkValid or checkValid(name)) and not UnitIsUnit("raid"..i, "player") then
+                local _, classToken = UnitClass("raid"..i)
+                local role = (Retinue and Retinue.Roles and Retinue.Roles.GetBotRole and Retinue.Roles.GetBotRole(name, classToken))
+                if role == "heal" then return name end
+            end
+        end
+    else
+        local n = GetNumPartyMembers()
+        for i = 1, n do
+            local name = UnitName("party"..i)
+            if name and (not checkValid or checkValid(name)) then
+                local _, classToken = UnitClass("party"..i)
+                local role = (Retinue and Retinue.Roles and Retinue.Roles.GetBotRole and Retinue.Roles.GetBotRole(name, classToken))
+                if role == "heal" then return name end
+            end
         end
     end
     return nil

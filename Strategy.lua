@@ -227,9 +227,25 @@ local function ForEachGroupMemberOfClass(classToken, func)
 end
 
 function UnBot:QueueRoleForBot(name, classToken, which, queryAfter)
+    if not name or not classToken then return false end
+    if Retinue and Retinue.Roles and Retinue.Roles.SetBotRole then
+        local roleDef = Retinue.Roles.FindRole(classToken, which)
+        if not roleDef and ROLE_PRESETS and ROLE_PRESETS[classToken] then
+            local p = ROLE_PRESETS[classToken][which]
+            if p then
+                roleDef = Retinue.Roles.FindRole(classToken, p.label)
+            end
+        end
+        if roleDef then
+            Retinue.Roles.SetBotRole(name, roleDef, classToken)
+            if queryAfter then self:QueueChat("co ?", "WHISPER", name) end
+            return true
+        end
+    end
+
     local preset = ROLE_PRESETS[classToken]
     local role = preset and preset[which]
-    if not role or not name then return false end
+    if not role then return false end
 
     local off = role.off
     local on = role.on
@@ -253,6 +269,31 @@ function UnBot:QueueRoleForBot(name, classToken, which, queryAfter)
         self:QueueChat("co ?", "WHISPER", name)
     end
     return true
+end
+
+function UnBot:ApplyRoleSpec(classToken, roleDef)
+    if not classToken or not roleDef then return end
+    local targets = 0
+    ForEachGroupMemberOfClass(classToken, function(name)
+        if Retinue and Retinue.Roles and Retinue.Roles.SetBotRole then
+            if Retinue.Roles.SetBotRole(name, roleDef, classToken) then
+                targets = targets + 1
+            end
+        end
+    end)
+    local className = string.upper(string.sub(classToken, 1, 1))
+                      ..string.lower(string.sub(classToken, 2))
+    if targets == 0 then
+        self:Message("No "..string.lower(classToken).." in your group")
+    else
+        self:Message(className.." - "..roleDef.label.." applied to "..targets.." bot(s)")
+        if self.rolesView and self.rolesView:IsShown() then
+            self:RefreshRolesView()
+        end
+        if self.partyView and self.partyView:IsShown() then
+            self:RefreshPartyView()
+        end
+    end
 end
 
 function UnBot:ApplyRole(classToken, which)
@@ -279,6 +320,9 @@ function UnBot:ApplyRole(classToken, which)
         if self.rolesView and self.rolesView:IsShown() then
             self:RefreshRolesView()
         end
+        if self.partyView and self.partyView:IsShown() then
+            self:RefreshPartyView()
+        end
     end
 end
 
@@ -286,7 +330,7 @@ function UnBot:GetSelectedRoleTarget()
     if not IsGroupedTarget() then return end
     local name = UnitName("target")
     local classToken = GetUnitClassToken("target")
-    if not name or not classToken or not ROLE_PRESETS[classToken] then return end
+    if not name or not classToken then return end
     return name, classToken
 end
 
@@ -296,15 +340,29 @@ function UnBot:ApplySelectedRole(which)
         self:Message("Select a supported bot in your party or raid")
         return
     end
-    local role = ROLE_PRESETS[classToken][which]
-    if self:QueueRoleForBot(name, classToken, which, true) then
-        if UnBotRoleFrame then
-            UnBotRoleFrame.statusText:SetText("Applying: "..role.label.."...")
-        end
-        if self.rolesView and self.rolesView.statusText then
-            self.rolesView.statusText:SetText("Applying: |cffffffff"..role.label.."...|r")
-        end
-        self:Message(role.label.." combat strategy applied to "..name)
+    local role = type(which) == "table" and which or (Retinue and Retinue.Roles and Retinue.Roles.FindRole(classToken, which))
+    if not role and ROLE_PRESETS and ROLE_PRESETS[classToken] then
+        role = ROLE_PRESETS[classToken][which]
+    end
+    if not role then return end
+
+    if Retinue and Retinue.Roles and Retinue.Roles.SetBotRole then
+        Retinue.Roles.SetBotRole(name, role, classToken)
+    else
+        self:QueueRoleForBot(name, classToken, which, true)
+    end
+    if UnBotRoleFrame and UnBotRoleFrame.statusText then
+        UnBotRoleFrame.statusText:SetText("Applying: "..(role.label or tostring(which)).."...")
+    end
+    if self.rolesView and self.rolesView.statusText then
+        self.rolesView.statusText:SetText("Applying: |cffffffff"..(role.label or tostring(which)).."...|r")
+    end
+    self:Message((role.label or tostring(which)).." combat strategy applied to "..name)
+    if self.rolesView and self.rolesView:IsShown() then
+        self:RefreshRolesView()
+    end
+    if self.partyView and self.partyView:IsShown() then
+        self:RefreshPartyView()
     end
 end
 

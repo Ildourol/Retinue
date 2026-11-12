@@ -937,13 +937,14 @@ local Roles = Retinue.Roles
 
 Roles.CLASS_ROLES = {
     [1] = { -- Warrior
-        { id = "tank", label = "Tank", strat = "+protection,-arms,-fury" },
-        { id = "dps",  label = "DPS",  strat = "+arms,-protection" },
+        { id = "tank", label = "Protection", strat = "+protection,-arms,-fury" },
+        { id = "dps",  label = "Arms",       strat = "+arms,-protection,-fury" },
+        { id = "fury", label = "Fury",       strat = "+fury,-protection,-arms" },
     },
     [2] = { -- Paladin
-        { id = "tank", label = "Tank",   strat = "+protection,-holy,-retribution" },
-        { id = "heal", label = "Healer", strat = "+holy,-protection,-retribution,-offdps" },
-        { id = "dps",  label = "DPS",    strat = "+retribution,-protection,-holy" },
+        { id = "tank", label = "Protection",  strat = "+protection,-holy,-retribution" },
+        { id = "heal", label = "Holy",        strat = "+holy,-protection,-retribution" },
+        { id = "dps",  label = "Retribution", strat = "+retribution,-protection,-holy" },
     },
     [3] = { -- Hunter
         { id = "bm",       label = "Beastmaster", strat = "+beast mastery,-marksmanship,-survival" },
@@ -951,19 +952,20 @@ Roles.CLASS_ROLES = {
         { id = "survival", label = "Survival",    strat = "+survival,-beast mastery,-marksmanship" },
     },
     [4] = { -- Rogue
-        { id = "combat",   label = "Combat",       strat = "+combat,-assassination,-subtlety" },
+        { id = "combat",   label = "Combat",        strat = "+combat,-assassination,-subtlety" },
         { id = "assa",     label = "Assassination", strat = "+assassination,-combat,-subtlety" },
-        { id = "subtlety", label = "Subtlety",      strat = "+subtlety,-combat,-assassination" },
+        { id = "subtlety", label = "Subtlety",       strat = "+subtlety,-combat,-assassination" },
     },
     [5] = { -- Priest
-        { id = "heal",   label = "Healer", strat = "+holy,-shadow,-offdps" },
-        { id = "hybrid", label = "Hybrid", strat = "+holy,+offdps,-shadow" },
-        { id = "dps",    label = "Shadow", strat = "+shadow,-holy,-discipline,-offdps" },
+        { id = "heal", label = "Holy",       strat = "+holy,-discipline,-shadow" },
+        { id = "disc", label = "Discipline", strat = "+discipline,-holy,-shadow" },
+        { id = "dps",  label = "Shadow",     strat = "+shadow,-holy,-discipline,-offdps" },
     },
     [7] = { -- Shaman
-        { id = "heal", label = "Healer",  strat = "+restoration,-elemental,-enhancement,-offdps" },
-        { id = "ele",  label = "Ele DPS", strat = "+elemental,-restoration,-enhancement" },
-        { id = "enh",  label = "Enh DPS", strat = "+enhancement,-restoration,-elemental" },
+        { id = "heal", label = "Restoration", strat = "+restoration,-elemental,-enhancement" },
+        { id = "ele",  label = "Elemental",   strat = "+elemental,-restoration,-enhancement" },
+        { id = "enh",  label = "Enhancement", strat = "+enhancement,-restoration,-elemental" },
+        { id = "tank", label = "Enh Tank",    strat = "+tank shaman,-restoration,-elemental,-enhancement" },
     },
     [8] = { -- Mage
         { id = "frost",  label = "Frost",  strat = "+frost,-fire,-arcane" },
@@ -976,12 +978,43 @@ Roles.CLASS_ROLES = {
         { id = "destruction", label = "Destruction", strat = "+destruction,-affliction,-demonology" },
     },
     [11] = { -- Druid
-        { id = "tank",    label = "Bear Tank",  strat = "+tank feral,-dps feral,-restoration,-balance" },
-        { id = "cat",     label = "Cat DPS",    strat = "+dps feral,-tank feral,-restoration,-balance" },
-        { id = "heal",    label = "Resto Heal", strat = "+restoration,-tank feral,-dps feral,-balance,-offdps" },
-        { id = "boomkin", label = "Boomkin",    strat = "+balance,-tank feral,-dps feral,-restoration" },
+        { id = "tank",    label = "Feral Bear",  strat = "+tank feral,-dps feral,-restoration,-balance" },
+        { id = "cat",     label = "Feral Cat",   strat = "+dps feral,-tank feral,-restoration,-balance" },
+        { id = "heal",    label = "Restoration", strat = "+restoration,-tank feral,-dps feral,-balance" },
+        { id = "boomkin", label = "Balance",     strat = "+balance,-tank feral,-dps feral,-restoration" },
     },
 }
+
+Roles.PLAYER_ROLES = {
+    { id = "tank", label = "Tank" },
+    { id = "heal", label = "Healer" },
+    { id = "dps",  label = "DPS" },
+}
+
+local SHORT_ROLE_LABELS = {
+    ["Assassination"] = "Assassin",
+    ["Beastmaster"]   = "BM",
+    ["Marksman"]      = "MM",
+    ["Survival"]      = "Surv",
+    ["Destruction"]   = "Destro",
+    ["Affliction"]    = "Affli",
+    ["Demonology"]    = "Demo",
+    ["Protection"]    = "Prot",
+    ["Retribution"]   = "Ret",
+    ["Restoration"]   = "Resto",
+    ["Discipline"]    = "Disc",
+    ["Elemental"]     = "Ele",
+    ["Enhancement"]   = "Enh",
+    ["Enh Tank"]      = "Tank",
+    ["Feral Bear"]    = "Bear",
+    ["Feral Cat"]     = "Cat",
+    ["Balance"]       = "Boomkin",
+}
+
+function Roles.ShortLabel(label)
+    if not label then return "" end
+    return SHORT_ROLE_LABELS[label] or label
+end
 
 function Roles.GetClassRoles(classId)
     if type(classId) == "string" and C.CLASS_NAME_TO_ID then
@@ -1020,31 +1053,130 @@ function Roles.FindRole(classId, roleId)
     return nil
 end
 
+function Roles.FindPlayerRole(roleId)
+    if not roleId then return nil end
+    for i = 1, table.getn(Roles.PLAYER_ROLES) do
+        local r = Roles.PLAYER_ROLES[i]
+        if r.id == roleId then return r end
+    end
+    return nil
+end
+
+-- Extracts active role matching live strategy specs from server (TBM:BOTSTATE specs=...)
+local function roleFromSpecs(roles, specs)
+    if not roles or not specs or specs == "" then return nil end
+    local have = {}
+    local iter = string.gfind or string.gmatch
+    for spec in iter(specs, "[^+]+") do
+        have[spec] = true
+    end
+    for pass = 1, 2 do
+        for i = 1, table.getn(roles) do
+            local role = roles[i]
+            local matches = true
+            for sign, strat in iter(role.strat or "", "([+-])([^,]+)") do
+                if (sign == "-" or pass == 1) and (sign == "+") ~= (have[strat] == true) then
+                    matches = false
+                    break
+                end
+            end
+            if matches then return role.id end
+        end
+    end
+    return nil
+end
+Roles.RoleFromSpecs = roleFromSpecs
+
 function Roles.GetBotRole(botName, classId)
-    local dbRoles = (RetinueConfig and RetinueConfig.botRoles) or {}
-    local currentId = dbRoles[botName]
     local roles = Roles.GetClassRoles(classId)
+    local state = nil
+    if UnBot and UnBot.botStates and botName then
+        local clean = string.gsub(botName, "%-.*$", "")
+        local norm = string.upper(string.sub(clean, 1, 1)) .. string.lower(string.sub(clean, 2))
+        local lower = string.lower(clean)
+        state = UnBot.botStates[norm] or UnBot.botStates[clean] or UnBot.botStates[lower] or UnBot.botStates[botName]
+    end
+    local currentId = state and state.specs and roleFromSpecs(roles, state.specs)
+    if not currentId then
+        local dbRoles = (RetinueConfig and RetinueConfig.botRoles) or {}
+        currentId = dbRoles[botName]
+    end
     if not currentId and roles[1] then
         currentId = roles[1].id
     end
     return currentId, Roles.FindRole(classId, currentId)
 end
 
-function Roles.GetPlayerRole(classId)
-    local roleId = RetinueConfig and RetinueConfig.playerRole
-    local roles = Roles.GetClassRoles(classId)
-    if not roleId and roles[1] then
-        roleId = roles[1].id
-    end
-    return roleId, Roles.FindRole(classId, roleId)
+function Roles.GetPlayerRoleToken(roleId)
+    if roleId == "tank" then return "tank" end
+    if roleId == "heal" or roleId == "healer" then return "healer" end
+    return "dps"
 end
 
-function Roles.SetPlayerRole(roleId, classId)
-    if not RetinueConfig then RetinueConfig = {} end
-    RetinueConfig.playerRole = roleId
-    if roleId then
-        UnBot:SendBotCommand("role self " .. roleId)
+function Roles.GetPlayerRole(classId)
+    local roleId = RetinueConfig and RetinueConfig.playerRole
+    if roleId and not Roles.FindPlayerRole(roleId) then
+        roleId = Roles.GetPlayerRoleToken(roleId) == "healer" and "heal" or Roles.GetPlayerRoleToken(roleId)
     end
+    if not roleId then roleId = "dps" end
+    return roleId, Roles.FindPlayerRole(roleId)
+end
+
+function Roles.SetPlayerRole(roleId)
+    local roleDef = type(roleId) == "table" and roleId or Roles.FindPlayerRole(roleId)
+    local role = roleDef and roleDef.id or roleId
+    if not role then return false end
+    if not RetinueConfig then RetinueConfig = {} end
+    RetinueConfig.playerRole = role
+    local token = Roles.GetPlayerRoleToken(role)
+    UnBot:SendBotCommand("role self " .. token)
+    local label = roleDef and roleDef.label or role
+    UnBot:Message("Your role set to " .. label)
+    return true
+end
+
+function Roles.SetBotRole(botName, role, classId)
+    local roleDef = type(role) == "table" and role or Roles.FindRole(classId, role)
+    if not roleDef or not botName then return false end
+    if not RetinueConfig then RetinueConfig = {} end
+    if not RetinueConfig.botRoles then RetinueConfig.botRoles = {} end
+
+    local currentId = Roles.GetBotRole(botName, classId)
+    local previousRole = currentId or RetinueConfig.botRoles[botName]
+    RetinueConfig.botRoles[botName] = roleDef.id
+
+    -- Invalidate cached specs so UI immediately updates to picked spec
+    if UnBot and UnBot.botStates then
+        local clean = string.gsub(botName, "%-.*$", "")
+        local norm = string.upper(string.sub(clean, 1, 1)) .. string.lower(string.sub(clean, 2))
+        local lower = string.lower(clean)
+        local st = UnBot.botStates[norm] or UnBot.botStates[clean] or UnBot.botStates[lower] or UnBot.botStates[botName]
+        if st then st.specs = nil end
+    end
+
+    -- If tank, order core tank designation
+    if roleDef.id == "tank" then
+        UnBot:SendBotCommand("role " .. botName .. " tank")
+    else
+        -- If switching away from tank, clear core tank designation
+        if previousRole == "tank" then
+            UnBot:SendBotCommand("role " .. botName .. " clear")
+        end
+        -- Apply the exact rotation strategy
+        if roleDef.strat and roleDef.strat ~= "" then
+            UnBot:SendBotCommand("strategy " .. roleDef.strat .. " " .. botName)
+            -- Fail-safe companion whisper
+            SendChatMessage("co " .. roleDef.strat, "WHISPER", nil, botName)
+        end
+    end
+
+    -- Optional auto-align talents if enabled
+    if RetinueConfig.autoTalentsOnRoleChange then
+        SendChatMessage("talents auto", "WHISPER", nil, botName)
+    end
+
+    UnBot:Message(botName .. " role set to " .. roleDef.label)
+    return true
 end
 
 function Roles.CycleBotRole(botName, classId)
@@ -1063,11 +1195,7 @@ function Roles.CycleBotRole(botName, classId)
     end
 
     local nextRole = roles[nextIndex]
-    if not RetinueConfig then RetinueConfig = {} end
-    if not RetinueConfig.botRoles then RetinueConfig.botRoles = {} end
-    RetinueConfig.botRoles[botName] = nextRole.id
-
-    UnBot:SendBotCommand("role " .. botName .. " " .. nextRole.id)
+    Roles.SetBotRole(botName, nextRole, classId)
     return nextRole
 end
 
