@@ -180,13 +180,14 @@ local ACTION_LABELS = {
     [201] = "Buff target",          [202] = "Revive target",
     [203] = "Self resurrect",       [204] = "Corpse run",
     [205] = "Warn & runaway",       [206] = "Query attackers",
+    [207] = "Downtime errands",
 }
 
 -- Counts follow UnBotCommandOrder. Each family starts on a fresh grid row.
 local ACTION_SECTIONS = {
     [1]  = { {"Attack & Pull", 16}, {"Crowd Control & Tactics", 20}, {"Stop & Flee", 9} },
     [2]  = { {"Following & Anchor", 5}, {"Position & Guard", 6}, {"Combat Stances", 7} },
-    [3]  = { {"Preparation & Buffs", 12}, {"Activities", 3}, {"Autonomous RPG", 6}, {"Death & Res", 7} },
+    [3]  = { {"Preparation & Buffs", 12}, {"Activities", 3}, {"Autonomous RPG & Downtime", 7}, {"Death & Res", 7} },
     [4]  = { {"Bags & Trade", 5}, {"Item actions", 6}, {"Loot Filters", 8} },
     [5]  = { {"Status", 2}, {"Combat strategies", 2}, {"Quests & Logs", 4} },
     [6]  = { {"View", 2}, {"Training", 3}, {"Pet Stance & Control", 4} },

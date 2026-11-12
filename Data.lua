@@ -213,6 +213,7 @@ UnBotExecuteCommand = {
     [204] = "corpse run",                       -- Corpse run back to bodies
     [205] = "runaway",                          -- Warn & runaway from danger
     [206] = "attackers",                        -- Announce active enemy attackers
+    [207] = ".bot downtime",                    -- Downtime errands (own alts)
 }
 
 -- How the command is delivered:
@@ -259,7 +260,7 @@ UnBotCommandType = {
     [186] = 2, [187] = 2, [188] = 2, [189] = 2, [190] = 2, [191] = 2, [192] = 2,
     [193] = 2, [194] = 2, [195] = 2,
     [196] = 2, [197] = 4, [198] = 1, [199] = 2, [200] = 4, [201] = 4,
-    [202] = 4, [203] = 4, [204] = 4, [205] = 4, [206] = 4,
+    [202] = 4, [203] = 4, [204] = 4, [205] = 4, [206] = 4, [207] = 4,
 }
 
 -- Which of the command-bar groups a command belongs to.
@@ -292,7 +293,7 @@ UnBotCommandToGroups = {
     [89] = 3, [90] = 3, [98] = 3, [99] = 3,
     [145] = 3, [146] = 3, [147] = 3, [148] = 3, [149] = 3, [150] = 3,
     [164] = 3, [165] = 3, [166] = 3, [167] = 3, [178] = 3, [193] = 3, [194] = 3, [195] = 3,
-    [199] = 3, [201] = 3, [202] = 3, [203] = 3, [204] = 3,
+    [199] = 3, [201] = 3, [202] = 3, [203] = 3, [204] = 3, [207] = 3,
     -- inventory and item maintenance
     [11] = 4, [64] = 4, [65] = 4, [66] = 4, [67] = 4, [68] = 4,
     [93] = 4, [94] = 4, [95] = 4,
@@ -333,7 +334,7 @@ UnBotCommandOrder = {
             106, 107, 108, 109, 110, 188, 111 },
     [3] = { 80, 90, 165, 99, 81, 166, 178, 167, 193, 194, 195, 201,
             24, 89, 199,
-            145, 146, 147, 148, 149, 150,
+            145, 146, 147, 148, 149, 150, 207,
             98, 164, 18, 19, 202, 203, 204 },
     [4] = { 64, 168, 93, 66, 94,
             68, 67, 95, 65, 196, 197,
@@ -625,6 +626,7 @@ UnBotCommandIcon = {
     [204] = I.."Spell_Shadow_AntiShadow",
     [205] = I.."Spell_Shadow_DeathScream",
     [206] = I.."Ability_DualWield",
+    [207] = I.."INV_Misc_Toy_07",
 }
 
 -- Original 3.3.5 icon indices, kept for reference only.

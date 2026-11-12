@@ -778,3 +778,42 @@ UnBot:RegisterHandler(206, function()
     UnBot:Message("Queried party bots for active attackers")
 end)
 
+-- [207] Downtime Errands (Own Alts)
+UnBot:RegisterHandler(207, function()
+    UnBot:SendBotCommand("downtime")
+    UnBot:Message("Dispatched downtime errands for active alts (trainer, vendor, repair)")
+end)
+
+--=========================================================================--
+--  Parity Action Helpers (Direct Cast, Items, Bank, Mail)
+--=========================================================================--
+
+function UnBot:CastBotSpell(botName, spellName)
+    if not botName or not spellName or spellName == "" then return false end
+    UnBot:SendBotCommand("command " .. botName .. " cast " .. spellName)
+    UnBot:Message("Ordered " .. botName .. " to cast " .. spellName)
+    return true
+end
+
+function UnBot:BotItemAction(botName, action, bag, slot)
+    if not botName or not action or not bag or not slot then return false end
+    UnBot:SendBotCommand("item " .. botName .. " " .. action .. " " .. bag .. " " .. slot)
+    return true
+end
+
+function UnBot:BotMailTake(botName, index)
+    if not botName or not index then return false end
+    UnBot:SendBotCommand("command " .. botName .. " mail take " .. index)
+    UnBot:Message("Ordered " .. botName .. " to take mail item #" .. index)
+    return true
+end
+
+function UnBot:BotBankItem(botName, itemLink, deposit)
+    if not botName or not itemLink then return false end
+    local prefix = deposit and "" or "-"
+    UnBot:SendBotCommand("command " .. botName .. " bank " .. prefix .. itemLink)
+    UnBot:Message("Ordered " .. botName .. " to " .. (deposit and "deposit " or "withdraw ") .. itemLink)
+    return true
+end
+
+

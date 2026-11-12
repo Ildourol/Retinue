@@ -143,6 +143,54 @@ function UnBot:RegisterSlashCommands()
         elseif msg == "capture clear" then
             UnBot.config.capture = {}
             UnBot:Message("Capture log cleared")
+        elseif msg == "trace" then
+            UnBot.trace = not UnBot.trace
+            if UnBot.trace then
+                UnBot:Message("Trace on: every command sent (>) and server line received (<) shows in chat")
+            else
+                UnBot:Message("Trace off")
+            end
+        elseif msg == "resetpos" then
+            if UnBotBar then
+                UnBotBar:ClearAllPoints()
+                UnBotBar:SetPoint("CENTER", UIParent, "CENTER", 0, -140)
+            end
+            if UnBotRosterFrame then
+                UnBotRosterFrame:ClearAllPoints()
+                UnBotRosterFrame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+            end
+            UnBot:Message("Window positions reset to center screen")
+        elseif msg == "log" or msg == "lootlog" then
+            if UnBot.ToggleRoster then
+                UnBot:ToggleRoster()
+                if UnBot.SelectRosterTab then
+                    UnBot:SelectRosterTab("lootlog")
+                end
+            end
+        elseif msg == "settings" or msg == "options" or msg == "config" then
+            if UnBot.ShowStrategyWindow then
+                UnBot:ShowStrategyWindow("behavior")
+            else
+                UnBot:ToggleUI()
+            end
+        elseif msg == "party" then
+            if UnBot.ToggleRoster then
+                UnBot:ToggleRoster()
+                if UnBot.SelectRosterTab then
+                    UnBot:SelectRosterTab("party")
+                end
+            end
+        elseif msg == "alts" then
+            if UnBot.RequestAltSummary then
+                UnBot:RequestAltSummary()
+            else
+                UnBot:SendBotCommand("alts")
+            end
+        elseif msg == "downtime" then
+            UnBot:SendBotCommand("downtime")
+            UnBot:Message("Ordered party bots on downtime: trainer, vendor, repair, return")
+        elseif msg == "mini" or msg == "full" or msg == "minilayout" then
+            UnBot:ToggleUI()
         elseif msg == "debug" then
             UnBot.debug = not UnBot.debug
             if UnBot.debug then
@@ -421,6 +469,9 @@ function UnBot:SendBotCommand(cmd, opts)
     else
         SendChatMessage(".bot " .. cmd)
     end
+    if self.trace and DEFAULT_CHAT_FRAME then
+        DEFAULT_CHAT_FRAME:AddMessage("|cff888888> .bot " .. cmd .. "|r")
+    end
     self.lastCommand = cmd
     self.lastCommandAt = (GetTime and GetTime()) or 0
     return true
@@ -428,6 +479,10 @@ end
 
 function UnBot:OnTBMSystemMessage(msg)
     if not msg or msg == "" then return false end
+
+    if self.trace and DEFAULT_CHAT_FRAME then
+        DEFAULT_CHAT_FRAME:AddMessage("|cff66ccff< " .. msg .. "|r")
+    end
 
     local _, _, caps = string.find(msg, "^TBM:CAPS|(.*)$")
     if caps then

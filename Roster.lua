@@ -651,6 +651,32 @@ function UnBot:ParseServerRoster(msg)
         return true
     end
 
+    -- Alt Summary lines (.bot alts)
+    if string.find(msg, "^TBM:ALTSUM_END") then
+        local batch = self.altsumReceiving
+        self.altsumReceiving = nil
+        if batch and batch.rows and table.getn(batch.rows) > 0 then
+            self:Message("|cffd8a657=== Account Alts Playing on Their Own (" .. table.getn(batch.rows) .. ") ===|r")
+            for _, r in ipairs(batch.rows) do
+                self:Message(" • " .. r.text)
+            end
+        else
+            self:Message("No account alts are currently playing on their own.")
+        end
+        return true
+    end
+
+    if string.find(msg, "^TBM:ALTSUM|") then
+        self.altsumReceiving = self.altsumReceiving or { rows = {} }
+        local _, _, rawName, text = string.find(msg, "^TBM:ALTSUM|([^|]*)|(.*)$")
+        if rawName and text then
+            local clean = string.gsub(rawName, "^%s+", "")
+            clean = string.gsub(clean, "%s+$", "")
+            table.insert(self.altsumReceiving.rows, { name = clean, text = text })
+        end
+        return true
+    end
+
     -- 4. Raid Tactics & Custom Status Responses
     if string.find(msg, "^Custom raid tactics are%s+(%S+)") then
         local _, _, st = string.find(msg, "^Custom raid tactics are%s+(%S+)")
@@ -709,6 +735,12 @@ function UnBot:CommitCcSnapshot(rows)
     end
     if self.RefreshCCView then self:RefreshCCView() end
     if self.RefreshPartyView then self:RefreshPartyView() end
+end
+
+function UnBot:RequestAltSummary()
+    self.altsumReceiving = { rows = {} }
+    self:SendBotCommand("alts")
+    self:Message("Requesting account alt summary (.bot alts)...")
 end
 
 --=========================================================================--
@@ -1376,10 +1408,11 @@ function UnBot:CreateBulkButtons(parent)
     MakeBtn("UnBotRosterAddFriends", "Add friends", 290, -266, 88, function() UnBot:RunCommand(88) end, "Adds current group to friends list.")
     MakeBtn("UnBotRosterSyncBtn", "Sync", 384, -266, 80, function() UnBot:RequestServerRoster(true) end, "Syncs roster with server.")
 
-    MakeBtn("UnBotRosterRemoveSelected", "Uninvite", 8, -294, 88, function() UnBot:RemoveSelectedFromGroup() end, "Uninvites checked bots.")
-    MakeBtn("UnBotRosterLogoutSelected", "Log out", 102, -294, 88, function() UnBot:LogoutSelectedBots() end, "Logs out checked bots.")
-    MakeBtn("UnBotRosterDropSelected",   "Delete", 196, -294, 88, function() UnBot:DeleteSelectedRoster() end, "Drops checked bots from roster.")
-    MakeBtn("UnBotRosterClearSelection", "Clear", 290, -294, 88, function() UnBot:ClearRosterSelection() end, "Clears selection.")
+    MakeBtn("UnBotRosterAltsBtn", "Alts (.bot alts)", 8, -294, 110, function() UnBot:RequestAltSummary() end, "Queries .bot alts summary of all account characters playing on their own.")
+    MakeBtn("UnBotRosterDowntimeBtn", "Downtime", 122, -294, 88, function() UnBot:SendBotCommand("downtime") end, "Sends bots on downtime errand: trainer, vendor, repair, then return.")
+    MakeBtn("UnBotRosterRemoveSelected", "Uninvite", 214, -294, 80, function() UnBot:RemoveSelectedFromGroup() end, "Uninvites checked bots.")
+    MakeBtn("UnBotRosterLogoutSelected", "Log out", 298, -294, 80, function() UnBot:LogoutSelectedBots() end, "Logs out checked bots.")
+    MakeBtn("UnBotRosterClearSelection", "Clear", 382, -294, 82, function() UnBot:ClearRosterSelection() end, "Clears selection.")
 end
 
 --=========================================================================--
@@ -1673,7 +1706,7 @@ function UnBot:CreatePartyView(parent)
         row.nameText = nameText
 
         local descText = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-        descText:SetPoint("BOTTOMLEFT", row, "BOTTOMLEFT", 8, 8); descText:SetWidth(260); descText:SetJustifyH("LEFT")
+        descText:SetPoint("BOTTOMLEFT", row, "BOTTOMLEFT", 8, 8); descText:SetWidth(130); descText:SetJustifyH("LEFT")
         descText:SetTextColor(0.6, 0.6, 0.6)
         row.descText = descText
 
@@ -1692,8 +1725,8 @@ function UnBot:CreatePartyView(parent)
         row.ccLabel = ccLabel
 
         local bagBtn = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
-        bagBtn:SetWidth(22); bagBtn:SetHeight(20)
-        bagBtn:SetPoint("TOPRIGHT", row, "TOPRIGHT", -8, -6)
+        bagBtn:SetWidth(22); bagBtn:SetHeight(18)
+        bagBtn:SetPoint("BOTTOMLEFT", row, "BOTTOMLEFT", 432, 6)
         bagBtn:SetText("B")
         bagBtn:SetScript("OnClick", function()
             local p = this:GetParent()
@@ -1702,8 +1735,8 @@ function UnBot:CreatePartyView(parent)
         row.bagBtn = bagBtn
 
         local btnBoost = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
-        btnBoost:SetWidth(26); btnBoost:SetHeight(20)
-        btnBoost:SetPoint("RIGHT", bagBtn, "LEFT", -4, 0)
+        btnBoost:SetWidth(26); btnBoost:SetHeight(18)
+        btnBoost:SetPoint("BOTTOMLEFT", row, "BOTTOMLEFT", 402, 6)
         btnBoost:SetText("+B")
         btnBoost:SetScript("OnClick", function()
             local p = this:GetParent()
@@ -1731,8 +1764,8 @@ function UnBot:CreatePartyView(parent)
         row.btnBoost = btnBoost
 
         local btnHeal = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
-        btnHeal:SetWidth(26); btnHeal:SetHeight(20)
-        btnHeal:SetPoint("RIGHT", btnBoost, "LEFT", -4, 0)
+        btnHeal:SetWidth(26); btnHeal:SetHeight(18)
+        btnHeal:SetPoint("BOTTOMLEFT", row, "BOTTOMLEFT", 372, 6)
         btnHeal:SetText("+H")
         btnHeal:SetScript("OnClick", function()
             local p = this:GetParent()
@@ -1760,8 +1793,8 @@ function UnBot:CreatePartyView(parent)
         row.btnHeal = btnHeal
 
         local btnTalents = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
-        btnTalents:SetWidth(26); btnTalents:SetHeight(20)
-        btnTalents:SetPoint("RIGHT", btnHeal, "LEFT", -4, 0)
+        btnTalents:SetWidth(26); btnTalents:SetHeight(18)
+        btnTalents:SetPoint("BOTTOMLEFT", row, "BOTTOMLEFT", 342, 6)
         btnTalents:SetText("+T")
         btnTalents:SetScript("OnClick", function()
             local p = this:GetParent()
@@ -1908,6 +1941,10 @@ function UnBot:RefreshPartyView()
                     local left = math.mod(iconIndex - 1, 4) * 0.25
                     local top = math.floor((iconIndex - 1) / 4) * 0.25
                     row.ccIcon:SetTexCoord(left, left + 0.25, top, top + 0.25)
+                    row.ccIcon:ClearAllPoints()
+                    row.ccIcon:SetPoint("BOTTOMLEFT", row, "BOTTOMLEFT", 312, 6)
+                    row.ccLabel:ClearAllPoints()
+                    row.ccLabel:SetPoint("RIGHT", row.ccIcon, "LEFT", -2, 0)
                     row.ccIcon:Show(); row.ccLabel:Show()
                 else
                     row.ccIcon:Hide(); row.ccLabel:Hide()
