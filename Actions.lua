@@ -124,10 +124,10 @@ local ACTION_LABELS = {
     [103] = "Loot world object",   [104] = "Formation: far",
     [105] = "Ping formation",      [106] = "Stance: near",
     [107] = "Stance: tank",        [108] = "Stance: turnback",
-    [109] = "Stance: behind",      [110] = "Combat spacing",
+    [109] = "Stance: behind",      [110] = "Combat spacing (Spread)",
     [111] = "Ping stance",         [112] = "Attack RTI",
-    [113] = "Pull RTI",            [114] = "Auto mark RTI",
-    [115] = "Toggle Kite",         [116] = "Target: Skull",
+    [113] = "Pull RTI",            [114] = "Tactic: Auto mark",
+    [115] = "Tactic: Kite",        [116] = "Target: Skull",
     [117] = "Target: Cross",       [118] = "Target: Square",
     [119] = "Target: Moon",        [120] = "Target: Triangle",
     [121] = "Target: Diamond",     [122] = "Target: Circle",
@@ -164,21 +164,32 @@ local ACTION_LABELS = {
     [168] = "Trade with bot",       [169] = "Maintenance",
     [170] = "Dragon tankface",      [171] = "Douse MC runes",
     [172] = "Turtle raid tactics",  [173] = "Wander mode",
-    [174] = "Single burn (focus)",  [175] = "Toggle AoE fear",
+    [174] = "Tactic: Focus Fire",   [175] = "Tactic: AoE Fear",
     [176] = "Threat back-off",      [177] = "Offensive boost",
     [178] = "Potions engine",       [179] = "Share quests",
     [180] = "Bind hearthstone",     [181] = "Taxi flight",
-    [182] = "Soft state reset",
+    [182] = "Reset tactics",
+    [186] = "Max DPS (Burst)",      [187] = "Sync swing timer",
+    [188] = "Combat range",
+    [189] = "Pet: Passive",         [190] = "Pet: Defensive",
+    [191] = "Pet: Aggressive",      [192] = "Pet: Auto Taunt",
+    [193] = "Focus heal target",    [194] = "Boost target",
+    [195] = "Configure totems",     [196] = "Remote vault",
+    [197] = "Equip upgrades",       [198] = "Loot history log",
+    [199] = "Mage portals",         [200] = "Follow target",
+    [201] = "Buff target",          [202] = "Revive target",
+    [203] = "Self resurrect",       [204] = "Corpse run",
+    [205] = "Warn & runaway",       [206] = "Query attackers",
 }
 
 -- Counts follow UnBotCommandOrder. Each family starts on a fresh grid row.
 local ACTION_SECTIONS = {
-    [1]  = { {"Attack & Pull", 14}, {"Crowd Control & Tactics", 19}, {"Stop & Flee", 8} },
-    [2]  = { {"Following & Anchor", 4}, {"Position & Guard", 6}, {"Combat Stances", 6} },
-    [3]  = { {"Preparation & Buffs", 8}, {"Activities", 2}, {"Autonomous RPG", 6}, {"Death & Res", 4} },
-    [4]  = { {"Bags & Trade", 5}, {"Item actions", 4}, {"Loot Filters", 8} },
-    [5]  = { {"Status", 2}, {"Combat strategies", 2}, {"Quests", 2} },
-    [6]  = { {"View", 2}, {"Training", 2} },
+    [1]  = { {"Attack & Pull", 16}, {"Crowd Control & Tactics", 20}, {"Stop & Flee", 9} },
+    [2]  = { {"Following & Anchor", 5}, {"Position & Guard", 6}, {"Combat Stances", 7} },
+    [3]  = { {"Preparation & Buffs", 12}, {"Activities", 3}, {"Autonomous RPG", 6}, {"Death & Res", 7} },
+    [4]  = { {"Bags & Trade", 5}, {"Item actions", 6}, {"Loot Filters", 8} },
+    [5]  = { {"Status", 2}, {"Combat strategies", 2}, {"Quests & Logs", 4} },
+    [6]  = { {"View", 2}, {"Training", 3}, {"Pet Stance & Control", 4} },
     [7]  = { {"Selected bot", 4}, {"Party Roster", 3}, {"Summoning & Leadership", 4} },
     [8]  = { {"Editor & Reset", 5}, {"Combat Behaviors", 2}, {"Raid Tactics", 3}, {"Save Mana Level", 6} },
     [9]  = { {"Current formation", 2}, {"Set formation", 9} },
@@ -318,6 +329,9 @@ function UnBot:GetActionButton(index)
             return
         elseif this.commandId == 157 and arg1 == "RightButton" then
             UnBot:CyclePullbackDelay()
+            return
+        elseif this.commandId == 188 and arg1 == "RightButton" then
+            UnBot:CycleCombatRange()
             return
         end
         if arg1 == "RightButton" then
@@ -564,19 +578,46 @@ function UnBot:RefreshActionGroup(groupIndex)
                 elseif entry.id == 157 then
                     local pbDelay = (RetinueConfig and RetinueConfig.pullbackDelay) or 3
                     label = label .. " (" .. pbDelay .. "s)"
+                elseif entry.id == 188 then
+                    local cRange = (RetinueConfig and RetinueConfig.combatRange) or 30
+                    label = label .. " (" .. cRange .. "yd)"
                 end
                 button.label:SetText(label)
                 button.label:SetTextColor(0.9, 0.9, 0.9)
 
                 if button.lamp then
-                    if entry.id == 160 or entry.id == 161 or entry.id == 24 then
-                        local key = (entry.id == 160 and "aoe") or (entry.id == 161 and "autocc") or "loot"
+                    if entry.id == 160 or entry.id == 161 or entry.id == 24 or entry.id == 110 then
+                        local key = (entry.id == 160 and "aoe") or (entry.id == 161 and "autocc") or (entry.id == 110 and "spread") or "loot"
                         local state = self:GetPartyConsensus(key)
+                        if entry.id == 110 and state == nil and self.spreadActive then
+                            state = "on"
+                        end
                         if state == "on" then
                             button.lamp:SetTexture("Interface\\RAIDFRAME\\Raid-ReadyCheck-Approved")
                             button.lamp:Show()
                         elseif state == "off" then
                             button.lamp:SetTexture("Interface\\RAIDFRAME\\Raid-ReadyCheck-NotReady")
+                            button.lamp:Show()
+                        elseif state == "mixed" then
+                            button.lamp:SetTexture("Interface\\RAIDFRAME\\Raid-ReadyCheck-Waiting")
+                            button.lamp:Show()
+                        else
+                            button.lamp:Hide()
+                        end
+                    elseif entry.id >= 106 and entry.id <= 109 then
+                        local sName = (entry.id == 106 and "near") or (entry.id == 107 and "tank") or (entry.id == 108 and "turnback") or "behind"
+                        if self.currentStance == sName then
+                            button.lamp:SetTexture("Interface\\RAIDFRAME\\Raid-ReadyCheck-Approved")
+                            button.lamp:Show()
+                            button.label:SetTextColor(0.95, 0.72, 0.28)
+                        else
+                            button.lamp:Hide()
+                        end
+                    elseif entry.id == 114 or entry.id == 115 or entry.id == 174 or entry.id == 175 then
+                        local tKey = (entry.id == 114 and "mark rti") or (entry.id == 115 and "kite") or (entry.id == 174 and "focus") or "aoe fear"
+                        local state = self:GetPartyConsensus(tKey)
+                        if state == "on" then
+                            button.lamp:SetTexture("Interface\\RAIDFRAME\\Raid-ReadyCheck-Approved")
                             button.lamp:Show()
                         elseif state == "mixed" then
                             button.lamp:SetTexture("Interface\\RAIDFRAME\\Raid-ReadyCheck-Waiting")
@@ -625,6 +666,28 @@ function UnBot:CyclePullbackDelay()
     self:Message("Pullback delay set to " .. nextVal .. "s")
     if self.actionGroupFrame and self.actionGroupFrame:IsShown() then
         self:RefreshActionGroup(1)
+    end
+end
+
+function UnBot:CycleCombatRange()
+    if not RetinueConfig then RetinueConfig = {} end
+    local cur = RetinueConfig.combatRange or 30
+    local ranges = { 5, 15, 20, 25, 30, 35, 40 }
+    local nextVal = 30
+    for i = 1, table.getn(ranges) do
+        if ranges[i] == cur then
+            if i == table.getn(ranges) then
+                nextVal = ranges[1]
+            else
+                nextVal = ranges[i + 1]
+            end
+            break
+        end
+    end
+    RetinueConfig.combatRange = nextVal
+    self:Message("Combat range set to " .. nextVal .. "yd")
+    if self.actionGroupFrame and self.actionGroupFrame:IsShown() then
+        self:RefreshActionGroup(2)
     end
 end
 

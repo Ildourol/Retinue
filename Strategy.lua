@@ -363,6 +363,19 @@ function UnBot:ParseCombatStrategies(sender, msg)
     if record.active["threat"] then st["threat"] = "on" else st["threat"] = "off" end
     if record.active["potions"] or record.active["potion"] then st["potions"] = "on" else st["potions"] = "off" end
     if record.active["spread"] then st["spread"] = "on" else st["spread"] = "off" end
+    if record.active["mark rti"] or record.active["rti"] then st["mark rti"] = "on" else st["mark rti"] = "off" end
+    if record.active["kite"] then st["kite"] = "on" else st["kite"] = "off" end
+    if record.active["focus"] then st["focus"] = "on" else st["focus"] = "off" end
+    if record.active["aoe fear"] then st["aoe fear"] = "on" else st["aoe fear"] = "off" end
+    if record.active["close"] or record.active["near"] then
+        st["stance"] = "near"
+    elseif record.active["tank"] or record.active["tank face"] then
+        st["stance"] = "tank"
+    elseif record.active["behind"] then
+        st["stance"] = "behind"
+    elseif record.active["turnback"] or record.active["turn back"] then
+        st["stance"] = "turnback"
+    end
 
     self.botStates[normSender] = st
     self.botStates[cleanSender] = st
@@ -2002,6 +2015,97 @@ function UnBot:CreateBehaviorPanel(parent)
         bp.chips[def.key] = chip
     end
 
+    -- Pet Stance & Control Strip (visible when targeting Hunter/Warlock)
+    local petStrip = CreateFrame("Frame", "UnBotBehaviorPetStrip", bp)
+    petStrip:SetPoint("TOPLEFT", bp, "TOPLEFT", 4, -272)
+    petStrip:SetWidth(482)
+    petStrip:SetHeight(24)
+
+    local petLabel = petStrip:CreateFontString(nil, "OVERLAY")
+    petLabel:SetFont(UnBotFont or "Fonts\\FRIZQT__.TTF", 10)
+    petLabel:SetPoint("LEFT", petStrip, "LEFT", 4, 0)
+    petLabel:SetTextColor(1, 0.82, 0)
+    petLabel:SetText("Pet Stance:")
+    petStrip.label = petLabel
+
+    local btnPassive = CreateFrame("Button", nil, petStrip, "UIPanelButtonTemplate")
+    btnPassive:SetWidth(65); btnPassive:SetHeight(20)
+    btnPassive:SetPoint("LEFT", petLabel, "RIGHT", 6, 0)
+    btnPassive:SetText("Passive")
+    btnPassive:SetScript("OnClick", function()
+        local bot = UnBot.strategyTarget
+        if bot then
+            SendChatMessage("pet passive", "WHISPER", nil, bot)
+            UnBot:Message("Set pet of " .. bot .. " to passive")
+            if not UnBot.botStates then UnBot.botStates = {} end
+            if not UnBot.botStates[bot] then UnBot.botStates[bot] = {} end
+            UnBot.botStates[bot]["pet_stance"] = "passive"
+            UnBot:RefreshBehaviorView()
+        end
+    end)
+    petStrip.btnPassive = btnPassive
+
+    local btnDefensive = CreateFrame("Button", nil, petStrip, "UIPanelButtonTemplate")
+    btnDefensive:SetWidth(75); btnDefensive:SetHeight(20)
+    btnDefensive:SetPoint("LEFT", btnPassive, "RIGHT", 4, 0)
+    btnDefensive:SetText("Defensive")
+    btnDefensive:SetScript("OnClick", function()
+        local bot = UnBot.strategyTarget
+        if bot then
+            SendChatMessage("pet defensive", "WHISPER", nil, bot)
+            UnBot:Message("Set pet of " .. bot .. " to defensive")
+            if not UnBot.botStates then UnBot.botStates = {} end
+            if not UnBot.botStates[bot] then UnBot.botStates[bot] = {} end
+            UnBot.botStates[bot]["pet_stance"] = "defensive"
+            UnBot:RefreshBehaviorView()
+        end
+    end)
+    petStrip.btnDefensive = btnDefensive
+
+    local btnAggressive = CreateFrame("Button", nil, petStrip, "UIPanelButtonTemplate")
+    btnAggressive:SetWidth(80); btnAggressive:SetHeight(20)
+    btnAggressive:SetPoint("LEFT", btnDefensive, "RIGHT", 4, 0)
+    btnAggressive:SetText("Aggressive")
+    btnAggressive:SetScript("OnClick", function()
+        local bot = UnBot.strategyTarget
+        if bot then
+            SendChatMessage("pet aggressive", "WHISPER", nil, bot)
+            UnBot:Message("Set pet of " .. bot .. " to aggressive")
+            if not UnBot.botStates then UnBot.botStates = {} end
+            if not UnBot.botStates[bot] then UnBot.botStates[bot] = {} end
+            UnBot.botStates[bot]["pet_stance"] = "aggressive"
+            UnBot:RefreshBehaviorView()
+        end
+    end)
+    petStrip.btnAggressive = btnAggressive
+
+    local btnTaunt = CreateFrame("Button", nil, petStrip, "UIPanelButtonTemplate")
+    btnTaunt:SetWidth(100); btnTaunt:SetHeight(20)
+    btnTaunt:SetPoint("LEFT", btnAggressive, "RIGHT", 8, 0)
+    btnTaunt:SetText("Taunt: ON")
+    btnTaunt:SetScript("OnClick", function()
+        local bot = UnBot.strategyTarget
+        if bot then
+            local classToken = GetUnitClassToken("target") or (UnBot.strategyClass) or ""
+            local spell = (classToken == "WARLOCK" and "Torment") or "Growl"
+            SendChatMessage("pet autocast " .. spell, "WHISPER", nil, bot)
+            if not UnBot.botStates then UnBot.botStates = {} end
+            if not UnBot.botStates[bot] then UnBot.botStates[bot] = {} end
+            if UnBot.botStates[bot]["pet_taunt"] == "off" then
+                UnBot.botStates[bot]["pet_taunt"] = "on"
+                UnBot:Message("Enabled pet taunt (" .. spell .. ") on " .. bot)
+            else
+                UnBot.botStates[bot]["pet_taunt"] = "off"
+                UnBot:Message("Disabled pet taunt (" .. spell .. ") on " .. bot)
+            end
+            UnBot:RefreshBehaviorView()
+        end
+    end)
+    petStrip.btnTaunt = btnTaunt
+
+    petStrip:Hide()
+    bp.petStrip = petStrip
+
     -- Bottom Action Buttons
     local queryBtn = CreateFrame("Button", "UnBotBehaviorQueryBtn", bp, "UIPanelButtonTemplate")
     queryBtn:SetWidth(120)
@@ -2174,6 +2278,33 @@ function UnBot:RefreshBehaviorView()
                     end
                 end
             end
+        end
+    end
+
+    if bp.petStrip then
+        if classToken == "HUNTER" or classToken == "WARLOCK" then
+            bp.petStrip:Show()
+            local petStance = st["pet_stance"] or "defensive"
+            if petStance == "passive" then
+                bp.petStrip.btnPassive:LockHighlight()
+                bp.petStrip.btnDefensive:UnlockHighlight()
+                bp.petStrip.btnAggressive:UnlockHighlight()
+            elseif petStance == "aggressive" then
+                bp.petStrip.btnPassive:UnlockHighlight()
+                bp.petStrip.btnDefensive:UnlockHighlight()
+                bp.petStrip.btnAggressive:LockHighlight()
+            else
+                bp.petStrip.btnPassive:UnlockHighlight()
+                bp.petStrip.btnDefensive:LockHighlight()
+                bp.petStrip.btnAggressive:UnlockHighlight()
+            end
+            if st["pet_taunt"] == "off" then
+                bp.petStrip.btnTaunt:SetText("|cffff4444Taunt: OFF|r")
+            else
+                bp.petStrip.btnTaunt:SetText("|cff44ff44Taunt: ON|r")
+            end
+        else
+            bp.petStrip:Hide()
         end
     end
 end

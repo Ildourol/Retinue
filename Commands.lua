@@ -52,6 +52,51 @@ local function KickFromGroup(name)
     end
 end
 
+-- Resolves the designated tank bot in the party/raid
+function UnBot:GetPartyTank()
+    local checkValid = IsValidCharacterName or (UnBot and UnBot.IsValidCharacterName)
+    local target = UnitName("target")
+    if target and (not checkValid or checkValid(target)) and (UnitInParty("target") or UnitInRaid("target")) and not UnitIsUnit("target", "player") then
+        local _, classToken = UnitClass("target")
+        local role = (RetinueConfig and RetinueConfig.botRoles and RetinueConfig.botRoles[target])
+            or (Retinue and Retinue.Roles and Retinue.Roles.GetBotRole and Retinue.Roles.GetBotRole(target, classToken))
+        if role == "tank" then return target end
+    end
+    if UnitInRaid("player") then
+        local n = GetNumRaidMembers()
+        for i = 1, n do
+            local name = UnitName("raid"..i)
+            if name and (not checkValid or checkValid(name)) and not UnitIsUnit("raid"..i, "player") then
+                local _, classToken = UnitClass("raid"..i)
+                local role = (RetinueConfig and RetinueConfig.botRoles and RetinueConfig.botRoles[name])
+                    or (Retinue and Retinue.Roles and Retinue.Roles.GetBotRole and Retinue.Roles.GetBotRole(name, classToken))
+                if role == "tank" then return name end
+            end
+        end
+    else
+        local n = GetNumPartyMembers()
+        for i = 1, n do
+            local name = UnitName("party"..i)
+            if name and (not checkValid or checkValid(name)) then
+                local _, classToken = UnitClass("party"..i)
+                local role = (RetinueConfig and RetinueConfig.botRoles and RetinueConfig.botRoles[name])
+                    or (Retinue and Retinue.Roles and Retinue.Roles.GetBotRole and Retinue.Roles.GetBotRole(name, classToken))
+                if role == "tank" then return name end
+            end
+        end
+    end
+    -- Fallback: first Warrior in group
+    local n = GetNumPartyMembers()
+    for i = 1, n do
+        local name = UnitName("party"..i)
+        if name and (not checkValid or checkValid(name)) then
+            local _, classToken = UnitClass("party"..i)
+            if classToken == "WARRIOR" then return name end
+        end
+    end
+    return nil
+end
+
 --=========================================================================--
 --  Handlers
 --=========================================================================--
@@ -296,5 +341,410 @@ end)
 UnBot:RegisterHandler(185, function()
     UnBot.raidBotTactics = {}
     UnBot:SendBotCommand("action raid status")
+end)
+
+-- [25] Party flee
+UnBot:RegisterHandler(25, function()
+    if UnBot.HasServerCapability and UnBot:HasServerCapability("flee") then
+        UnBot:SendBotCommand("action flee")
+    else
+        SendChatMessage("flee", "PARTY")
+    end
+end)
+
+-- [33] Tank attack: Direct the designated tank bot to pull/engage target first
+UnBot:RegisterHandler(33, function()
+    local tank = UnBot.GetPartyTank and UnBot:GetPartyTank()
+    if tank then
+        SendChatMessage("tank attack", "WHISPER", nil, tank)
+        UnBot:Message("Ordered tank ("..tank..") to attack")
+    else
+        SendChatMessage("tank attack", "PARTY")
+        UnBot:SendBotCommand("action attack")
+    end
+end)
+
+-- [110] Spread toggle (staggers bot positioning)
+UnBot:RegisterHandler(110, function()
+    local state = UnBot.GetPartyConsensus and UnBot:GetPartyConsensus("spread")
+    if state == "on" or UnBot.spreadActive then
+        UnBot:SendBotCommand("behavior party spread off")
+        UnBot.spreadActive = false
+        UnBot:Message("Party spread behavior disabled")
+    else
+        UnBot:SendBotCommand("behavior party spread on")
+        UnBot.spreadActive = true
+        UnBot:Message("Party spread behavior enabled")
+    end
+    if UnBot.RefreshActionGroupGrid and UnBot.actionGroupFrame and UnBot.actionGroupFrame:IsShown() then
+        UnBot:RefreshActionGroupGrid()
+    end
+end)
+
+-- [158] End pull: Abort active tank pull hold and instruct party/tank to resume standard combat
+UnBot:RegisterHandler(158, function()
+    local tank = UnBot.GetPartyTank and UnBot:GetPartyTank()
+    if tank then
+        SendChatMessage("end pull", "WHISPER", nil, tank)
+    end
+    UnBot:SendBotCommand("action end pull")
+    UnBot:Message("Aborted tank pull hold")
+end)
+
+-- [167] Totem party drop
+UnBot:RegisterHandler(167, function()
+    UnBot:SendBotCommand("totem party drop")
+    UnBot:Message("Ordered Shaman bots to drop totems")
+end)
+
+-- [186] Max DPS: Direct DPS bots to burn cooldowns and ignore threat/mana caps
+UnBot:RegisterHandler(186, function()
+    local target = UnitName("target")
+    local checkValid = IsValidCharacterName or (UnBot and UnBot.IsValidCharacterName)
+    if target and (not checkValid or checkValid(target)) and (UnitInParty("target") or UnitInRaid("target")) then
+        SendChatMessage("max dps", "WHISPER", nil, target)
+        UnBot:Message("Sent Max DPS order to " .. target)
+    else
+        SendChatMessage("max dps", "PARTY")
+        UnBot:Message("Sent Max DPS order to party")
+    end
+end)
+
+-- [187] Sync Swing Timer: Tell bots to sync attack timing / wait for attack time
+UnBot:RegisterHandler(187, function()
+    local target = UnitName("target")
+    local checkValid = IsValidCharacterName or (UnBot and UnBot.IsValidCharacterName)
+    if target and (not checkValid or checkValid(target)) and (UnitInParty("target") or UnitInRaid("target")) then
+        SendChatMessage("wait for attack time 1", "WHISPER", nil, target)
+        UnBot:Message("Set attack wait time for " .. target .. " to 1s")
+    else
+        SendChatMessage("wait for attack time 1", "PARTY")
+        UnBot:Message("Set attack wait time for party to 1s")
+    end
+end)
+
+-- [188] Combat Range: Adjust bot combat distance
+UnBot:RegisterHandler(188, function()
+    local cRange = (RetinueConfig and RetinueConfig.combatRange) or 30
+    local target = UnitName("target")
+    local checkValid = IsValidCharacterName or (UnBot and UnBot.IsValidCharacterName)
+    if target and (not checkValid or checkValid(target)) and (UnitInParty("target") or UnitInRaid("target")) then
+        SendChatMessage("range attack " .. cRange, "WHISPER", nil, target)
+        UnBot:Message("Set combat range for " .. target .. " to " .. cRange .. "yd")
+    else
+        SendChatMessage("range attack " .. cRange, "PARTY")
+        UnBot:Message("Set combat range for party to " .. cRange .. "yd")
+    end
+end)
+
+-- [189] Pet: Passive
+UnBot:RegisterHandler(189, function()
+    local target = UnitName("target")
+    local checkValid = IsValidCharacterName or (UnBot and UnBot.IsValidCharacterName)
+    if target and (not checkValid or checkValid(target)) and (UnitInParty("target") or UnitInRaid("target")) then
+        SendChatMessage("pet passive", "WHISPER", nil, target)
+        UnBot:Message("Set pet of " .. target .. " to passive")
+    else
+        SendChatMessage("pet passive", "PARTY")
+        UnBot:Message("Set party pets to passive")
+    end
+end)
+
+-- [190] Pet: Defensive
+UnBot:RegisterHandler(190, function()
+    local target = UnitName("target")
+    local checkValid = IsValidCharacterName or (UnBot and UnBot.IsValidCharacterName)
+    if target and (not checkValid or checkValid(target)) and (UnitInParty("target") or UnitInRaid("target")) then
+        SendChatMessage("pet defensive", "WHISPER", nil, target)
+        UnBot:Message("Set pet of " .. target .. " to defensive")
+    else
+        SendChatMessage("pet defensive", "PARTY")
+        UnBot:Message("Set party pets to defensive")
+    end
+end)
+
+-- [191] Pet: Aggressive
+UnBot:RegisterHandler(191, function()
+    local target = UnitName("target")
+    local checkValid = IsValidCharacterName or (UnBot and UnBot.IsValidCharacterName)
+    if target and (not checkValid or checkValid(target)) and (UnitInParty("target") or UnitInRaid("target")) then
+        SendChatMessage("pet aggressive", "WHISPER", nil, target)
+        UnBot:Message("Set pet of " .. target .. " to aggressive")
+    else
+        SendChatMessage("pet aggressive", "PARTY")
+        UnBot:Message("Set party pets to aggressive")
+    end
+end)
+
+-- [192] Pet: Auto Taunt / Autocast
+UnBot:RegisterHandler(192, function()
+    local target = UnitName("target")
+    local checkValid = IsValidCharacterName or (UnBot and UnBot.IsValidCharacterName)
+    if target and (not checkValid or checkValid(target)) and (UnitInParty("target") or UnitInRaid("target")) then
+        local _, classToken = UnitClass("target")
+        local spell = (classToken == "WARLOCK" and "Torment") or "Growl"
+        SendChatMessage("pet autocast " .. spell, "WHISPER", nil, target)
+        UnBot:Message("Toggled pet taunt autocast (" .. spell .. ") on " .. target)
+    else
+        SendChatMessage("pet autocast Growl", "PARTY")
+        SendChatMessage("pet autocast Torment", "PARTY")
+        UnBot:Message("Toggled pet taunt autocast for party pets")
+    end
+end)
+
+-- [193] Focus Heal Priority
+UnBot:RegisterHandler(193, function()
+    local target = UnitName("target")
+    local checkValid = IsValidCharacterName or (UnBot and UnBot.IsValidCharacterName)
+    if not target or target == "" or (checkValid and not checkValid(target)) then
+        UnBot:Message("Select a friendly group member to set/toggle as focus heal priority")
+        return
+    end
+    SendChatMessage("focus heal +" .. target, "PARTY")
+    UnBot.focusHealTarget = target
+    UnBot:Message("Requested focus heal priority on " .. target)
+    if UnBot.RefreshPartyView and UnBot.partyView and UnBot.partyView:IsShown() then
+        UnBot:RefreshPartyView()
+    end
+end)
+
+-- [194] Boost Target Priority
+UnBot:RegisterHandler(194, function()
+    local target = UnitName("target")
+    local checkValid = IsValidCharacterName or (UnBot and UnBot.IsValidCharacterName)
+    if not target or target == "" or (checkValid and not checkValid(target)) then
+        UnBot:Message("Select a group member to set/toggle as boost target priority")
+        return
+    end
+    SendChatMessage("boost target +" .. target, "PARTY")
+    UnBot.boostTarget = target
+    UnBot:Message("Requested boost target priority on " .. target)
+    if UnBot.RefreshPartyView and UnBot.partyView and UnBot.partyView:IsShown() then
+        UnBot:RefreshPartyView()
+    end
+end)
+
+-- [195] Shaman Totem Configuration
+UnBot:RegisterHandler(195, function()
+    local target = UnitName("target")
+    local checkValid = IsValidCharacterName or (UnBot and UnBot.IsValidCharacterName)
+    if target and (not checkValid or checkValid(target)) and (UnitInParty("target") or UnitInRaid("target")) then
+        UnBot:SendBotCommand("totem " .. target)
+    else
+        UnBot:SendBotCommand("totem")
+    end
+end)
+
+-- Resolves a Mage bot in party/raid
+function UnBot:GetPartyMage()
+    local target = UnitName("target")
+    local checkValid = IsValidCharacterName or (UnBot and UnBot.IsValidCharacterName)
+    if target and (not checkValid or checkValid(target)) and (UnitInParty("target") or UnitInRaid("target")) and not UnitIsUnit("target", "player") then
+        local _, classToken = UnitClass("target")
+        if classToken == "MAGE" then return target end
+    end
+    if UnitInRaid("player") then
+        local n = GetNumRaidMembers()
+        for i = 1, n do
+            local name = UnitName("raid"..i)
+            if name and (not checkValid or checkValid(name)) and not UnitIsUnit("raid"..i, "player") then
+                local _, classToken = UnitClass("raid"..i)
+                if classToken == "MAGE" then return name end
+            end
+        end
+    else
+        local n = GetNumPartyMembers()
+        for i = 1, n do
+            local name = UnitName("party"..i)
+            if name and (not checkValid or checkValid(name)) then
+                local _, classToken = UnitClass("party"..i)
+                if classToken == "MAGE" then return name end
+            end
+        end
+    end
+    return nil
+end
+
+-- Interactive Mage City Portal Conjuring Menu
+function UnBot:OpenMagePortalMenu()
+    local mage = self:GetPartyMage()
+    if not mage then
+        self:Message("No Mage bot found in party or raid")
+        return
+    end
+
+    if not self.magePortalFrame then
+        local pf = CreateFrame("Frame", "UnBotMagePortalFrame", UIParent)
+        pf:SetWidth(240); pf:SetHeight(180)
+        pf:SetPoint("CENTER", UIParent, "CENTER", 0, 50)
+        pf:EnableMouse(true)
+        if self.MakeDraggable then self:MakeDraggable(pf) end
+        pf:SetBackdrop({
+            bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
+            edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
+            tile = true, tileSize = 32, edgeSize = 32,
+            insets = { left = 11, right = 12, top = 12, bottom = 11 }
+        })
+        if UISpecialFrames then table.insert(UISpecialFrames, "UnBotMagePortalFrame") end
+
+        local pTitle = pf:CreateFontString(nil, "OVERLAY")
+        pTitle:SetFont(UnBotFont or "Fonts\\FRIZQT__.TTF", 12)
+        pTitle:SetPoint("TOP", pf, "TOP", 0, -16)
+        pTitle:SetTextColor(1, 0.82, 0)
+        pTitle:SetText("Mage Portals")
+        pf.pTitle = pTitle
+
+        local pSub = pf:CreateFontString(nil, "OVERLAY")
+        pSub:SetFont(UnBotFont or "Fonts\\FRIZQT__.TTF", 9)
+        pSub:SetPoint("TOP", pTitle, "BOTTOM", 0, -4)
+        pSub:SetTextColor(0.7, 0.7, 0.7)
+        pSub:SetText("Select destination city:")
+        pf.pSub = pSub
+
+        local closeBtn = CreateFrame("Button", nil, pf, "UIPanelCloseButton")
+        closeBtn:SetPoint("TOPRIGHT", pf, "TOPRIGHT", -6, -6)
+
+        local portals = {
+            { name = "Stormwind", spell = 10059 },
+            { name = "Ironforge", spell = 11416 },
+            { name = "Darnassus", spell = 11419 },
+            { name = "Orgrimmar", spell = 11417 },
+            { name = "Undercity", spell = 11418 },
+            { name = "Thunder Bluff", spell = 11420 },
+        }
+
+        pf.buttons = {}
+        for idx = 1, table.getn(portals) do
+            local p = portals[idx]
+            local col = math.mod(idx - 1, 2) + 1
+            local row = math.floor((idx - 1) / 2) + 1
+            local b = CreateFrame("Button", nil, pf, "UIPanelButtonTemplate")
+            b:SetWidth(100); b:SetHeight(24)
+            b:SetPoint("TOPLEFT", pf, "TOPLEFT", 16 + (col - 1) * 106, -50 - (row - 1) * 28)
+            b:SetText(p.name)
+            b.spell = p.spell
+            b.cityName = p.name
+            b:SetScript("OnClick", function()
+                local m = UnBot:GetPartyMage()
+                if m then
+                    UnBot:SendBotCommand("service " .. m .. " portal " .. this.spell)
+                    UnBot:Message("Requested portal to " .. this.cityName .. " from " .. m)
+                end
+                pf:Hide()
+            end)
+            pf.buttons[idx] = b
+        end
+        self.magePortalFrame = pf
+    end
+
+    self.magePortalFrame.pTitle:SetText("Mage Portals (" .. mage .. ")")
+    self.magePortalFrame:Show()
+end
+
+-- [196] Remote Bank & Mailbox Vault
+UnBot:RegisterHandler(196, function()
+    local target = UnitName("target")
+    local checkValid = IsValidCharacterName or (UnBot and UnBot.IsValidCharacterName)
+    local bot = (target and (not checkValid or checkValid(target)) and (UnitInParty("target") or UnitInRaid("target")) and not UnitIsUnit("target", "player")) and target or nil
+    if not bot then
+        local n = GetNumPartyMembers()
+        for i = 1, n do
+            local name = UnitName("party"..i)
+            if name and (not checkValid or checkValid(name)) then
+                bot = name
+                break
+            end
+        end
+    end
+    if not bot then
+        UnBot:Message("Select a party bot to inspect bank & mailbox vault")
+        return
+    end
+    UnBot:ShowItemWindow("vault", bot)
+end)
+
+-- [197] Equip Upgrades
+UnBot:RegisterHandler(197, function()
+    local target = UnitName("target")
+    local checkValid = IsValidCharacterName or (UnBot and UnBot.IsValidCharacterName)
+    if target and (not checkValid or checkValid(target)) and (UnitInParty("target") or UnitInRaid("target")) and not UnitIsUnit("target", "player") then
+        UnBot:SendBotCommand("command " .. target .. " d equip upgrades")
+        UnBot:Message("Ordered " .. target .. " to equip bag upgrades")
+    else
+        SendChatMessage("d equip upgrades", "PARTY")
+        UnBot:Message("Ordered party bots to equip bag upgrades")
+    end
+end)
+
+-- [198] Bot Loot History Log
+UnBot:RegisterHandler(198, function()
+    UnBot:ToggleRoster("lootlog")
+end)
+
+-- [199] Mage City Portals
+UnBot:RegisterHandler(199, function()
+    UnBot:OpenMagePortalMenu()
+end)
+
+-- [200] Follow Target
+UnBot:RegisterHandler(200, function()
+    local target = UnitName("target")
+    local checkValid = IsValidCharacterName or (UnBot and UnBot.IsValidCharacterName)
+    if target and target ~= "" and (not checkValid or checkValid(target)) then
+        SendChatMessage("follow target", "PARTY")
+        UnBot:Message("Ordered bots to follow target: " .. target)
+    else
+        UnBot:Message("Select a friendly target for bots to follow")
+    end
+end)
+
+-- [201] Buff Target Priority
+UnBot:RegisterHandler(201, function()
+    local target = UnitName("target")
+    local checkValid = IsValidCharacterName or (UnBot and UnBot.IsValidCharacterName)
+    if target and target ~= "" and (not checkValid or checkValid(target)) then
+        SendChatMessage("buff target", "PARTY")
+        UnBot:Message("Ordered buffer bots to buff " .. target)
+    else
+        SendChatMessage("buff target", "PARTY")
+        UnBot:Message("Ordered buffer bots to cast party buffs")
+    end
+end)
+
+-- [202] Revive Target Priority
+UnBot:RegisterHandler(202, function()
+    local target = UnitName("target")
+    local checkValid = IsValidCharacterName or (UnBot and UnBot.IsValidCharacterName)
+    if target and target ~= "" and (not checkValid or checkValid(target)) then
+        SendChatMessage("revive target", "PARTY")
+        UnBot:Message("Ordered healers to resurrect " .. target)
+    else
+        SendChatMessage("revive target", "PARTY")
+        UnBot:Message("Ordered healers to revive fallen group members")
+    end
+end)
+
+-- [203] Self Resurrect
+UnBot:RegisterHandler(203, function()
+    SendChatMessage("self res", "PARTY")
+    UnBot:Message("Ordered Shamans and Warlocks to self-resurrect")
+end)
+
+-- [204] Corpse Run
+UnBot:RegisterHandler(204, function()
+    SendChatMessage("corpse run", "PARTY")
+    UnBot:Message("Ordered dead bots to release and corpse run")
+end)
+
+-- [205] Warn & Runaway
+UnBot:RegisterHandler(205, function()
+    SendChatMessage("runaway", "PARTY")
+    UnBot:Message("Ordered party bots to runaway!")
+end)
+
+-- [206] Query Attackers
+UnBot:RegisterHandler(206, function()
+    SendChatMessage("attackers", "PARTY")
+    UnBot:Message("Queried party bots for active attackers")
 end)
 

@@ -34,7 +34,7 @@ end
 
 function UnBot:CreateMainFrame()
     local frame = CreateFrame("Frame", "UnBotFrame", UIParent)
-    frame:SetWidth(13 * (BUTTON_SIZE + BUTTON_GAP) + 20)
+    frame:SetWidth(12 * (BUTTON_SIZE + BUTTON_GAP) + 20)
     frame:SetHeight(BUTTON_SIZE * 2 + 26)
     frame:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, 180)
     self:MakeDraggable(frame)
@@ -297,21 +297,6 @@ function UnBot:CreateGroupButtons()
     end)
     catalogBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
     self.catalogButton = catalogBtn
-
-    -- Role shortcuts get a fixed slot of their own rather than hiding in a
-    -- popup, since they are meant to be one click away.
-    local roleX = MAIN_CONTENT_LEFT + 12 * (BUTTON_SIZE + BUTTON_GAP)
-    local roles = self:CreateIconButton("UnBotRoleButton", UnBotFrame, roleX,
-                                      GROUP_BUTTON_Y)
-    self:ApplyButtonIcon(roles, 102)
-    roles:SetScript("OnClick", function()
-        UnBot:ToggleRoleBar()
-    end)
-    roles:SetScript("OnEnter", function()
-        UnBot:ShowCommandTooltip(this, 102, "plain")
-    end)
-    self.roleButton = roles
-
 end
 
 -- Shared button factory: icon fills the button, with pushed/highlight art.

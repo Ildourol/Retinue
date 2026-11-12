@@ -35,7 +35,7 @@ UnBotExecuteCommand = {
     [30] = "@ranged flee",
     [31] = "flee",
     [32] = ".bot action attack",                -- intent-driven party attack (150yd, evade-safe)
-    [33] = "@tank attack",
+    [33] = "",                                  -- tank attack (handler in Commands.lua resolves group tank)
     [34] = "@dps attack",
     [35] = "@heal attack",
     [36] = "@melee attack",
@@ -104,8 +104,8 @@ UnBotExecuteCommand = {
     -- RTI and Combat Tactics
     [112] = "attack rti",
     [113] = "pull rti",
-    [114] = "co ~mark rti",
-    [115] = "co ~kite",
+    [114] = ".bot strategy ~mark rti",          -- auto mark next target with Skull
+    [115] = ".bot strategy ~kite",              -- maintain maximum distance while attacking
 
     -- RTI Target Marks
     [116] = "rti skull",
@@ -180,18 +180,39 @@ UnBotExecuteCommand = {
     [171] = ".bot action raid douse",           -- douse nearby Molten Core runes
     [172] = ".bot action raid custom on",       -- enable Turtle raid strategies
     [173] = "wander",                           -- free roaming wander mode
-    [174] = "co ~focus",                        -- single-target burn (no splash)
-    [175] = "co ~aoe fear",                     -- toggle AoE fears in dungeons
+    [174] = ".bot strategy ~focus",            -- single-target burn (no splash)
+    [175] = ".bot strategy ~aoe fear",         -- toggle AoE fears in dungeons
     [176] = ".bot behavior party threat on",    -- ease off near tank threat
     [177] = ".bot behavior party boost on",     -- toggle offensive cooldowns
     [178] = ".bot behavior party potions on",   -- toggle automated potion reactions
     [179] = "share",                            -- share eligible quests with party
     [180] = "home",                             -- bind hearthstone at innkeeper
     [181] = "taxi",                             -- purchase flight path
-    [182] = "reset",                            -- soft reset transient combat state
+    [182] = ".bot strategy reset",              -- soft reset transient combat state
     [183] = ".bot action raid custom off",      -- disable Turtle custom raid tactics
     [184] = ".bot action raid custom status",   -- check Turtle custom raid tactics
     [185] = ".bot action raid status",          -- list loaded boss tactics per bot
+    [186] = "",                                 -- Max DPS (handler in Commands.lua)
+    [187] = "",                                 -- Sync attack swing timer (handler in Commands.lua)
+    [188] = "",                                 -- Combat range cycle (handler in Commands.lua)
+    [189] = "",                                 -- Pet stance passive (handler in Commands.lua)
+    [190] = "",                                 -- Pet stance defensive (handler in Commands.lua)
+    [191] = "",                                 -- Pet stance aggressive (handler in Commands.lua)
+    [192] = "",                                 -- Pet autocast toggle (handler in Commands.lua)
+    [193] = "",                                 -- Focus heal priority (handler in Commands.lua)
+    [194] = "",                                 -- Boost target priority (handler in Commands.lua)
+    [195] = "",                                 -- Shaman totem loadout configuration (handler in Commands.lua)
+    [196] = "",                                 -- Remote Bank & Mailbox Vault (handler in Commands.lua)
+    [197] = "d equip upgrades",                 -- Instant gear upgrade swapping
+    [198] = "",                                 -- Bot loot history log (handler in Commands.lua)
+    [199] = "",                                 -- Mage city portal conjuring (handler in Commands.lua)
+    [200] = "follow target",                    -- Follow selected friendly target
+    [201] = "buff target",                      -- Buff selected target priority
+    [202] = "revive target",                    -- Revive selected dead target
+    [203] = "self res",                         -- Self resurrect (Shaman/Warlock)
+    [204] = "corpse run",                       -- Corpse run back to bodies
+    [205] = "runaway",                          -- Warn & runaway from danger
+    [206] = "attackers",                        -- Announce active enemy attackers
 }
 
 -- How the command is delivered:
@@ -235,6 +256,10 @@ UnBotCommandType = {
     [170] = 4, [171] = 4, [172] = 4, [173] = 4, [174] = 4, [175] = 4, [176] = 4,
     [177] = 4, [178] = 4, [179] = 4, [180] = 2, [181] = 2, [182] = 2,
     [183] = 4, [184] = 4, [185] = 4,
+    [186] = 2, [187] = 2, [188] = 2, [189] = 2, [190] = 2, [191] = 2, [192] = 2,
+    [193] = 2, [194] = 2, [195] = 2,
+    [196] = 2, [197] = 4, [198] = 1, [199] = 2, [200] = 4, [201] = 4,
+    [202] = 4, [203] = 4, [204] = 4, [205] = 4, [206] = 4,
 }
 
 -- Which of the command-bar groups a command belongs to.
@@ -256,27 +281,29 @@ UnBotCommandToGroups = {
     [116] = 1, [117] = 1, [118] = 1, [119] = 1, [120] = 1, [121] = 1,
     [122] = 1, [123] = 1, [124] = 1, [125] = 1, [126] = 1, [127] = 1,
     [156] = 1, [157] = 1, [158] = 1, [159] = 1, [160] = 1, [161] = 1, [162] = 1,
-    [174] = 1, [175] = 1,
+    [174] = 1, [175] = 1, [186] = 1, [187] = 1, [205] = 1,
     -- movement & stances
     [15] = 2, [16] = 2, [47] = 2, [76] = 2, [100] = 2,
     [106] = 2, [107] = 2, [108] = 2, [109] = 2, [110] = 2, [111] = 2,
-    [142] = 2, [143] = 2, [144] = 2, [163] = 2, [173] = 2,
+    [142] = 2, [143] = 2, [144] = 2, [163] = 2, [173] = 2, [188] = 2, [200] = 2,
     -- support and upkeep
     [18] = 3, [19] = 3, [24] = 3, [55] = 3, [56] = 3, [57] = 3,
     [58] = 3, [59] = 3, [60] = 3, [61] = 3, [80] = 3, [81] = 3,
     [89] = 3, [90] = 3, [98] = 3, [99] = 3,
     [145] = 3, [146] = 3, [147] = 3, [148] = 3, [149] = 3, [150] = 3,
-    [164] = 3, [165] = 3, [166] = 3, [167] = 3, [178] = 3,
+    [164] = 3, [165] = 3, [166] = 3, [167] = 3, [178] = 3, [193] = 3, [194] = 3, [195] = 3,
+    [199] = 3, [201] = 3, [202] = 3, [203] = 3, [204] = 3,
     -- inventory and item maintenance
     [11] = 4, [64] = 4, [65] = 4, [66] = 4, [67] = 4, [68] = 4,
     [93] = 4, [94] = 4, [95] = 4,
     [128] = 4, [129] = 4, [130] = 4, [131] = 4, [132] = 4, [133] = 4, [134] = 4, [135] = 4,
-    [168] = 4,
+    [168] = 4, [196] = 4, [197] = 4,
     -- information and status
     [20] = 5, [21] = 5, [22] = 5, [23] = 5, [62] = 5, [63] = 5,
+    [198] = 5, [206] = 5,
     -- training and abilities
     [5] = 6, [6] = 6, [7] = 6, [8] = 6, [17] = 6, [69] = 6,
-    [96] = 6, [97] = 6,
+    [96] = 6, [97] = 6, [189] = 6, [190] = 6, [191] = 6, [192] = 6, [199] = 6,
     -- party management
     [1] = 7, [2] = 7, [3] = 7, [4] = 7, [12] = 7, [13] = 7, [14] = 7,
     [71] = 7, [73] = 7, [82] = 7, [83] = 7, [86] = 7, [87] = 7,
@@ -292,30 +319,31 @@ UnBotCommandToGroups = {
     [102] = 0,
     -- group 11: utilities, mail, blacklist & world interaction
     [72] = 11, [88] = 11, [103] = 11, [151] = 11, [152] = 11, [153] = 11, [154] = 11, [155] = 11,
-    [179] = 11, [180] = 11, [181] = 11,
+    [179] = 11, [180] = 11, [181] = 11, [196] = 11,
 }
 
 -- Display order inside each group.  Any future command not listed here is
 -- appended using its command ID, so adding an action cannot hide it.
 UnBotCommandOrder = {
-    [1] = { 32, 91, 156, 92, 157, 158, 159, 112, 113, 33, 35, 34, 36, 37,
-            160, 161, 162, 174, 175, 115, 114, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127,
-            70, 25, 31, 26, 28, 27, 29, 30 },
-    [2] = { 15, 16, 163, 100,
+    [1] = { 32, 91, 156, 92, 157, 158, 186, 187, 159, 112, 113, 33, 35, 34, 36, 37,
+            160, 161, 162, 174, 175, 115, 114, 182, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127,
+            70, 25, 31, 26, 28, 27, 29, 30, 205 },
+    [2] = { 15, 16, 163, 100, 200,
             47, 76, 142, 143, 144, 173,
-            106, 107, 108, 109, 110, 111 },
-    [3] = { 80, 90, 165, 99, 81, 166, 178, 167,
-            24, 89,
+            106, 107, 108, 109, 110, 188, 111 },
+    [3] = { 80, 90, 165, 99, 81, 166, 178, 167, 193, 194, 195, 201,
+            24, 89, 199,
             145, 146, 147, 148, 149, 150,
-            98, 164, 18, 19 },
+            98, 164, 18, 19, 202, 203, 204 },
     [4] = { 64, 168, 93, 66, 94,
-            68, 67, 95, 65,
+            68, 67, 95, 65, 196, 197,
             128, 129, 130, 131, 132, 133, 134, 135 },
     [5] = { 22, 23,
             62, 63,
-            20, 21 },
+            20, 21, 198, 206 },
     [6] = { 96, 69,
-            97, 17 },
+            97, 17, 199,
+            189, 190, 191, 192 },
     [7] = { 87, 86, 2, 169,
             83, 82, 3,
             13, 14,
@@ -576,6 +604,27 @@ UnBotCommandIcon = {
     [183] = I.."Spell_Shadow_AntiShadow",
     [184] = I.."Spell_Arcane_PortalIronForge",
     [185] = I.."INV_Misc_Book_11",
+    [186] = I.."Spell_Nature_BloodLust",
+    [187] = I.."Ability_MeleeDamage",
+    [188] = I.."INV_Weapon_Bow_08",
+    [189] = I.."Spell_Nature_TimeStop",
+    [190] = I.."Ability_Defend",
+    [191] = I.."Ability_Racial_BloodFury",
+    [192] = I.."Ability_Physical_Taunt",
+    [193] = I.."Spell_Holy_FlashHeal",
+    [194] = I.."Spell_Holy_PowerInfusion",
+    [195] = I.."Spell_Fire_Totem",
+    [196] = I.."INV_Box_01",
+    [197] = I.."INV_Chest_Plate04",
+    [198] = I.."INV_Misc_Bag_10",
+    [199] = I.."Spell_Arcane_PortalIronForge",
+    [200] = I.."Ability_Tracking",
+    [201] = I.."Spell_Holy_GreaterBlessingofKings",
+    [202] = I.."Spell_Holy_Resurrection",
+    [203] = I.."Spell_Nature_Reincarnation",
+    [204] = I.."Spell_Shadow_AntiShadow",
+    [205] = I.."Spell_Shadow_DeathScream",
+    [206] = I.."Ability_DualWield",
 }
 
 -- Original 3.3.5 icon indices, kept for reference only.

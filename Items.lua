@@ -672,10 +672,9 @@ function UnBot:CreateItemFrame()
         f:Hide()
     end)
 
-    -- Tab Bar (Gear, Bags, Behaviour)
-    -- Tab Bar (Gear, Bags)
+    -- Tab Bar (Gear, Bags, Vault)
     local tabGear = CreateFrame("Button", "UnBotItemTabGear", f, "UIPanelButtonTemplate")
-    tabGear:SetWidth(150)
+    tabGear:SetWidth(96)
     tabGear:SetHeight(20)
     tabGear:SetPoint("TOPLEFT", f, "TOPLEFT", 16, -44)
     tabGear:SetText("Gear")
@@ -687,7 +686,7 @@ function UnBot:CreateItemFrame()
     f.tabGear = tabGear
 
     local tabBags = CreateFrame("Button", "UnBotItemTabBags", f, "UIPanelButtonTemplate")
-    tabBags:SetWidth(150)
+    tabBags:SetWidth(96)
     tabBags:SetHeight(20)
     tabBags:SetPoint("TOPLEFT", tabGear, "TOPRIGHT", 8, 0)
     tabBags:SetText("Bags")
@@ -698,15 +697,30 @@ function UnBot:CreateItemFrame()
     end)
     f.tabBags = tabBags
 
+    local tabVault = CreateFrame("Button", "UnBotItemTabVault", f, "UIPanelButtonTemplate")
+    tabVault:SetWidth(96)
+    tabVault:SetHeight(20)
+    tabVault:SetPoint("TOPLEFT", tabBags, "TOPRIGHT", 8, 0)
+    tabVault:SetText("Vault")
+    tabVault:SetScript("OnClick", function()
+        UnBot.inspectorView = "vault"
+        if f.contextMenu then f.contextMenu:Hide() end
+        UnBot:RefreshBotInspector()
+    end)
+    f.tabVault = tabVault
+
     -- View 1: Gear Paperdoll View
     self:CreateGearPaperdollView(f)
 
     -- View 2: Bags View
     self:CreateBagsView(f)
 
-    -- Footer Actions: Trade, Refresh, Catalog, Hint
+    -- View 3: Remote Bank & Mailbox Vault View
+    self:CreateVaultView(f)
+
+    -- Footer Actions: Trade, Refresh, Catalog, Equip Upgrades
     local tradeBtn = CreateFrame("Button", "UnBotItemTradeBtn", f, "UIPanelButtonTemplate")
-    tradeBtn:SetWidth(76)
+    tradeBtn:SetWidth(72)
     tradeBtn:SetHeight(22)
     tradeBtn:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 16, 26)
     tradeBtn:SetText("Trade")
@@ -725,19 +739,27 @@ function UnBot:CreateItemFrame()
     f.tradeBtn = tradeBtn
 
     local refreshBtn = CreateFrame("Button", "UnBotItemRefreshBtn", f, "UIPanelButtonTemplate")
-    refreshBtn:SetWidth(76)
+    refreshBtn:SetWidth(72)
     refreshBtn:SetHeight(22)
     refreshBtn:SetPoint("LEFT", tradeBtn, "RIGHT", 6, 0)
     refreshBtn:SetText("Refresh")
     refreshBtn:SetScript("OnClick", function()
         if UnBot.inspectorBot then
-            UnBot:RequestBotInventory(UnBot.inspectorBot)
+            if UnBot.inspectorView == "vault" then
+                if UnBot.vaultViewMode == "mail" then
+                    UnBot:RequestMailbox(UnBot.inspectorBot)
+                else
+                    UnBot:RequestBank(UnBot.inspectorBot)
+                end
+            else
+                UnBot:RequestBotInventory(UnBot.inspectorBot)
+            end
         end
     end)
     f.refreshBtn = refreshBtn
 
     local catalogBtn = CreateFrame("Button", "UnBotItemOpenCatalogBtn", f, "UIPanelButtonTemplate")
-    catalogBtn:SetWidth(76)
+    catalogBtn:SetWidth(72)
     catalogBtn:SetHeight(22)
     catalogBtn:SetPoint("LEFT", refreshBtn, "RIGHT", 6, 0)
     catalogBtn:SetText("Catalog")
@@ -754,6 +776,26 @@ function UnBot:CreateItemFrame()
     end)
     catalogBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
     f.catalogBtn = catalogBtn
+
+    local upgradesBtn = CreateFrame("Button", "UnBotItemEquipUpgradesBtn", f, "UIPanelButtonTemplate")
+    upgradesBtn:SetWidth(72)
+    upgradesBtn:SetHeight(22)
+    upgradesBtn:SetPoint("LEFT", catalogBtn, "RIGHT", 6, 0)
+    upgradesBtn:SetText("Upgrades")
+    upgradesBtn:SetScript("OnClick", function()
+        if UnBot.inspectorBot and UnBot.inspectorBot ~= "" then
+            UnBot:SendBotCommand("whisper " .. UnBot.inspectorBot .. " d equip upgrades")
+            UnBot:Message("Instructed " .. UnBot.inspectorBot .. " to equip all gear upgrades.")
+        end
+    end)
+    upgradesBtn:SetScript("OnEnter", function()
+        GameTooltip:SetOwner(this, "ANCHOR_TOP")
+        GameTooltip:AddLine("Equip Upgrades", 1, 0.82, 0)
+        GameTooltip:AddLine("Commands bot to scan inventory and immediately equip all better items (d equip upgrades).", 0.7, 0.7, 0.7)
+        GameTooltip:Show()
+    end)
+    upgradesBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    f.upgradesBtn = upgradesBtn
 
     local hint = f:CreateFontString(nil, "OVERLAY")
     hint:SetFont(UnBotFont or "Fonts\\FRIZQT__.TTF", 9)
@@ -1033,13 +1075,21 @@ function UnBot:RefreshBotInspector()
     local view = self.inspectorView or "gear"
     f.gearView:Hide()
     f.bagsView:Hide()
+    if f.vaultView then f.vaultView:Hide() end
     f.tabGear:Enable()
     f.tabBags:Enable()
+    if f.tabVault then f.tabVault:Enable() end
 
     if view == "bags" then
         f.bagsView:Show()
         f.tabBags:Disable()
         self:RenderBagsView(inv)
+    elseif view == "vault" then
+        if f.vaultView then
+            f.vaultView:Show()
+            f.tabVault:Disable()
+            self:RefreshVaultView()
+        end
     else
         f.gearView:Show()
         f.tabGear:Disable()
@@ -1226,4 +1276,352 @@ end
 function UnBot:ScrollItems(delta)
     self.bagPage = (self.bagPage or 1) + delta
     self:RefreshBotInspector()
+end
+
+--=========================================================================--
+--  Remote Bank & Mailbox Vault System
+--=========================================================================--
+
+UnBot.vaults = {}
+UnBot.vaultViewMode = "bank"
+UnBot.vaultOffset = 0
+
+function UnBot:GetVault(botName)
+    botName = NormalizeName(botName or self.inspectorBot)
+    return botName and self.vaults and self.vaults[botName] or nil
+end
+
+function UnBot:ParseVaultLine(msg)
+    if not msg then return nil end
+    local _, _, id, label = string.find(msg, "Hitem:(%d+):.-|h%[([^%]]+)%]")
+    id = tonumber(id)
+    if not id or not label then return nil end
+    label = string.gsub(string.gsub(label, "^%s+", ""), "%s+$", "")
+    if label == "" then return nil end
+    local _, _, count = string.find(msg, "|h|rx(%d+)")
+    count = tonumber(count) or 1
+    return id, label, count
+end
+
+function UnBot:ConsumeVaultReply(sender, msg)
+    if not sender or not msg or msg == "" then return false end
+    sender = NormalizeName(sender)
+    local curBot = NormalizeName(self.inspectorBot or "")
+    if curBot == "" or sender ~= curBot then return false end
+
+    self.vaults = self.vaults or {}
+    local v = self.vaults[sender]
+    if not v then
+        v = { bank = {}, mail = {}, at = GetTime() }
+        self.vaults[sender] = v
+    end
+
+    if string.find(msg, "=== Bank ===") then
+        v.bank = {}
+        v.header = "bank"
+        v.at = GetTime()
+        self.vaultViewMode = "bank"
+        if self.RefreshVaultView then self:RefreshVaultView() end
+        return true
+    end
+
+    if string.find(msg, "=== Mailbox ===") then
+        v.mail = {}
+        v.header = "mail"
+        v.at = GetTime()
+        self.vaultViewMode = "mail"
+        if self.RefreshVaultView then self:RefreshVaultView() end
+        return true
+    end
+
+    if v.header == "mail" then
+        if string.find(msg, "^#%d+ ") then
+            local _, _, n = string.find(msg, "^#(%d+) ")
+            table.insert(v.mail, { n = tonumber(n) or 0, text = msg })
+            v.at = GetTime()
+            if self.RefreshVaultView then self:RefreshVaultView() end
+            return true
+        end
+    end
+
+    if v.header == "bank" then
+        local id, label, count = self:ParseVaultLine(msg)
+        if id then
+            for i = 1, table.getn(v.bank) do
+                if v.bank[i].id == id then
+                    v.bank[i].count = (v.bank[i].count or 1) + count
+                    if self.RefreshVaultView then self:RefreshVaultView() end
+                    return true
+                end
+            end
+            table.insert(v.bank, { id = id, name = label, count = count })
+            v.at = GetTime()
+            if self.RefreshVaultView then self:RefreshVaultView() end
+            return true
+        end
+    end
+
+    return false
+end
+
+function UnBot:RequestBank(botName)
+    botName = NormalizeName(botName or self.inspectorBot)
+    if not botName or botName == "" then return false end
+    self.vaults = self.vaults or {}
+    local v = self.vaults[botName]
+    if not v then v = { bank = {}, mail = {} }; self.vaults[botName] = v end
+    v.bank = {}
+    v.pending = true
+    v.header = false
+    v.at = GetTime()
+    self:SendBotCommand("command " .. botName .. " bank")
+    self:Message("Asking " .. botName .. " to open its bank...")
+    return true
+end
+
+function UnBot:RequestMailbox(botName)
+    botName = NormalizeName(botName or self.inspectorBot)
+    if not botName or botName == "" then return false end
+    self.vaults = self.vaults or {}
+    local v = self.vaults[botName]
+    if not v then v = { bank = {}, mail = {} }; self.vaults[botName] = v end
+    v.mail = {}
+    v.pending = true
+    v.header = false
+    v.at = GetTime()
+    self:SendBotCommand("command " .. botName .. " mail ?")
+    self:Message("Asking " .. botName .. " to check its mailbox...")
+    return true
+end
+
+function UnBot:SendBankWithdraw(botName, id, label)
+    botName = NormalizeName(botName or self.inspectorBot)
+    id = tonumber(id)
+    if not botName or not id then return false end
+    self:Message(botName .. " withdrawing " .. (label or ("item " .. id)) .. " from bank...")
+    return self:SendBotCommand("command " .. botName .. " bank -|Hitem:" .. id .. ":0:0:0|h[" .. (label or ("item " .. id)) .. "]|h")
+end
+
+function UnBot:SendMailTake(botName, n)
+    botName = NormalizeName(botName or self.inspectorBot)
+    n = tonumber(n)
+    if not botName or not n then return false end
+    self:Message(botName .. " taking mail letter #" .. n .. "...")
+    return self:SendBotCommand("command " .. botName .. " mail take " .. n)
+end
+
+function UnBot:OpenVaultWindow(target)
+    local bot = target or (self.GetBotTarget and self:GetBotTarget()) or (UnitIsPlayer("target") and UnitName("target"))
+    if not bot or bot == "" then
+        bot = (UnitInParty("party1") and UnitName("party1")) or UnitName("player")
+    end
+    self.inspectorBot = NormalizeName(bot)
+    self.inspectorView = "vault"
+    if not UnBotItemFrame then self:CreateItemFrame() end
+    if not UnBotItemFrame:IsShown() then
+        UnBotItemFrame:Show()
+    end
+    self:RefreshBotInspector()
+    self:RequestBank(bot)
+end
+
+function UnBot:CreateVaultView(parent)
+    local v = CreateFrame("Frame", "UnBotVaultView", parent)
+    v:SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -72)
+    v:SetWidth(308); v:SetHeight(370)
+    parent.vaultView = v
+
+    -- Sub-Mode Buttons: Bank vs Mailbox
+    local bankBtn = CreateFrame("Button", "UnBotVaultSubBank", v, "UIPanelButtonTemplate")
+    bankBtn:SetWidth(98); bankBtn:SetHeight(20)
+    bankBtn:SetPoint("TOPLEFT", v, "TOPLEFT", 0, 0)
+    bankBtn:SetText("Bank Items")
+    bankBtn:SetScript("OnClick", function()
+        UnBot.vaultViewMode = "bank"
+        UnBot.vaultOffset = 0
+        UnBot:RefreshVaultView()
+    end)
+    v.bankBtn = bankBtn
+
+    local mailBtn = CreateFrame("Button", "UnBotVaultSubMail", v, "UIPanelButtonTemplate")
+    mailBtn:SetWidth(98); mailBtn:SetHeight(20)
+    mailBtn:SetPoint("LEFT", bankBtn, "RIGHT", 6, 0)
+    mailBtn:SetText("Mailbox")
+    mailBtn:SetScript("OnClick", function()
+        UnBot.vaultViewMode = "mail"
+        UnBot.vaultOffset = 0
+        UnBot:RefreshVaultView()
+    end)
+    v.mailBtn = mailBtn
+
+    local queryBtn = CreateFrame("Button", "UnBotVaultQueryBtn", v, "UIPanelButtonTemplate")
+    queryBtn:SetWidth(98); queryBtn:SetHeight(20)
+    queryBtn:SetPoint("LEFT", mailBtn, "RIGHT", 6, 0)
+    queryBtn:SetText("Query")
+    queryBtn:SetScript("OnClick", function()
+        if UnBot.inspectorBot and UnBot.inspectorBot ~= "" then
+            if UnBot.vaultViewMode == "mail" then
+                UnBot:RequestMailbox(UnBot.inspectorBot)
+            else
+                UnBot:RequestBank(UnBot.inspectorBot)
+            end
+        end
+    end)
+    v.queryBtn = queryBtn
+
+    local hintText = v:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    hintText:SetPoint("TOPLEFT", v, "TOPLEFT", 2, -24)
+    hintText:SetWidth(304); hintText:SetHeight(16); hintText:SetJustifyH("LEFT")
+    hintText:SetTextColor(0.8, 0.8, 0.6)
+    v.hintText = hintText
+
+    -- Rows: 8 rows of height 34
+    local VAULT_ROWS = 8
+    local ROW_H = 34
+    v.rows = {}
+    for i = 1, VAULT_ROWS do
+        local row = CreateFrame("Frame", "UnBotVaultRow" .. i, v)
+        row:SetWidth(294); row:SetHeight(ROW_H - 2)
+        row:SetPoint("TOPLEFT", v, "TOPLEFT", 0, -44 - (i - 1) * ROW_H)
+        row:EnableMouseWheel(true)
+        row:SetScript("OnMouseWheel", function()
+            UnBot:ScrollVault(-arg1)
+        end)
+
+        local icon = row:CreateTexture(nil, "ARTWORK")
+        icon:SetWidth(28); icon:SetHeight(28)
+        icon:SetPoint("LEFT", row, "LEFT", 2, 0)
+        row.icon = icon
+
+        local count = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        count:SetPoint("BOTTOMRIGHT", icon, "BOTTOMRIGHT", -1, 1)
+        count:SetTextColor(1, 1, 1)
+        row.count = count
+
+        local label = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+        label:SetPoint("LEFT", icon, "RIGHT", 6, 0)
+        label:SetWidth(184); label:SetHeight(28); label:SetJustifyH("LEFT")
+        row.label = label
+
+        local actBtn = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
+        actBtn:SetWidth(64); actBtn:SetHeight(20)
+        actBtn:SetPoint("RIGHT", row, "RIGHT", -2, 0)
+        actBtn:SetText("Take")
+        row.actBtn = actBtn
+
+        row:EnableMouse(true)
+        row:SetScript("OnEnter", function()
+            local it = this.entry
+            if it and it.id and tonumber(it.id) then
+                GameTooltip:SetOwner(this, "ANCHOR_RIGHT")
+                GameTooltip:SetHyperlink("item:" .. it.id .. ":0:0:0")
+                GameTooltip:Show()
+            end
+        end)
+        row:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
+        v.rows[i] = row
+    end
+
+    local emptyMsg = v:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    emptyMsg:SetPoint("CENTER", v, "CENTER", 0, -20)
+    emptyMsg:SetWidth(280); emptyMsg:SetJustifyH("CENTER")
+    emptyMsg:SetText("|cffd8a657No Vault Data|r\n\nBot must be near a Banker or Mailbox.\nClick [ Query ] while nearby.")
+    v.emptyMsg = emptyMsg
+
+    v:EnableMouseWheel(true)
+    v:SetScript("OnMouseWheel", function()
+        UnBot:ScrollVault(-arg1)
+    end)
+end
+
+function UnBot:RefreshVaultView()
+    local f = UnBotItemFrame
+    if not f or not f:IsShown() or not f.vaultView or not f.vaultView:IsShown() then return end
+    local v = f.vaultView
+    local bot = self.inspectorBot
+    local mode = self.vaultViewMode or "bank"
+
+    if mode == "bank" then
+        v.bankBtn:LockHighlight()
+        v.mailBtn:UnlockHighlight()
+        v.hintText:SetText("Bank Vault: click Withdraw to take item.")
+    else
+        v.bankBtn:UnlockHighlight()
+        v.mailBtn:LockHighlight()
+        v.hintText:SetText("Mailbox: click Take to collect mail.")
+    end
+
+    local vault = self:GetVault(bot)
+    local items = (vault and ((mode == "bank" and vault.bank) or (mode == "mail" and vault.mail))) or {}
+    local total = table.getn(items)
+
+    local maxOffset = total - 8
+    if maxOffset < 0 then maxOffset = 0 end
+    self.vaultOffset = self.vaultOffset or 0
+    if self.vaultOffset > maxOffset then self.vaultOffset = maxOffset end
+    if self.vaultOffset < 0 then self.vaultOffset = 0 end
+
+    if total == 0 then
+        v.emptyMsg:Show()
+    else
+        v.emptyMsg:Hide()
+    end
+
+    for i = 1, 8 do
+        local row = v.rows[i]
+        local it = items[i + self.vaultOffset]
+        if it then
+            row.entry = it
+            if mode == "bank" then
+                local iconTex = self:GetItemIcon(it.id) or "Interface\\Icons\\INV_Misc_QuestionMark"
+                row.icon:SetTexture(iconTex)
+                row.icon:Show()
+                if it.count and it.count > 1 then
+                    row.count:SetText(tostring(it.count))
+                else
+                    row.count:SetText("")
+                end
+                row.label:SetText(it.name or ("Item #" .. it.id))
+                row.actBtn:SetText("Withdraw")
+                row.actBtn:SetScript("OnClick", function()
+                    local parentEntry = this:GetParent().entry
+                    if parentEntry and UnBot.inspectorBot then
+                        UnBot:SendBankWithdraw(UnBot.inspectorBot, parentEntry.id, parentEntry.name)
+                    end
+                end)
+            else
+                row.icon:SetTexture("Interface\\Icons\\INV_Letter_15")
+                row.icon:Show()
+                row.count:SetText("")
+                row.label:SetText(it.text or ("Letter #" .. (it.n or i)))
+                row.actBtn:SetText("Take")
+                row.actBtn:SetScript("OnClick", function()
+                    local parentEntry = this:GetParent().entry
+                    if parentEntry and UnBot.inspectorBot then
+                        UnBot:SendMailTake(UnBot.inspectorBot, parentEntry.n)
+                    end
+                end)
+            end
+            row:Show()
+        else
+            row.entry = nil
+            row:Hide()
+        end
+    end
+end
+
+function UnBot:ScrollVault(delta)
+    local bot = self.inspectorBot
+    local mode = self.vaultViewMode or "bank"
+    local vault = self:GetVault(bot)
+    local items = (vault and ((mode == "bank" and vault.bank) or (mode == "mail" and vault.mail))) or {}
+    local total = table.getn(items)
+    local maxOffset = total - 8
+    if maxOffset < 0 then maxOffset = 0 end
+
+    self.vaultOffset = (self.vaultOffset or 0) + delta
+    if self.vaultOffset < 0 then self.vaultOffset = 0 end
+    if self.vaultOffset > maxOffset then self.vaultOffset = maxOffset end
+    self:RefreshVaultView()
 end

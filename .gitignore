@@ -1,7 +1,7 @@
 # Reference files
 _original_335/
 
-# Exclude agent definitions, tests, and workspace tracking
+# Exclude agent definitions, tests, and workspace tracking (Local Only - Never Push to GitHub)
 AGENTS.md
 .agents/
 .codex/
@@ -10,5 +10,10 @@ AGENTS.md
 scratch/
 tests/
 test/
+t/
+test_*
+docs/
+!docs/images/
+!docs/images/**
 *.tmp
 *.log

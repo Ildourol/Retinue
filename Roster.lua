@@ -2,7 +2,7 @@
 --
 -- Features:
 --   1. Account Alts Roster: SavedVariables + server .bot roster / .bot list
---   2. Guild Claimed Bots: wandering bots claimed via /ginvite (TBM:CLAIMED protocol)
+--   2. Bot Loot History Log: party bot loot, roll decisions, money, and items
 --   3. Active Party Roster: live roles (Tank/Heal/DPS), CC mark badges, 1-click gear inspect
 --   4. Raid Encounter Tactics: Tank face away, Douse runes, Turtle custom raid toggles, boss tactics
 --   5. Crowd Control (CC) Manager: 8 raid marks exclusive assignment and tracking
@@ -81,24 +81,6 @@ end
 local ROW_COUNT  = 10
 local ROW_HEIGHT = 22
 
--- Release Claimed Bot Confirmation Modal
-StaticPopupDialogs["RETINUE_RELEASE_CLAIMED_BOT"] = {
-    text = "Release %s back to the wandering bot pool (/gkick)?",
-    button1 = "Release",
-    button2 = "Cancel",
-    OnAccept = function()
-        if UnBot.pendingClaimedRelease then
-            UnBot:ReleaseClaimedBot(UnBot.pendingClaimedRelease)
-            UnBot.pendingClaimedRelease = nil
-        end
-    end,
-    OnCancel = function()
-        UnBot.pendingClaimedRelease = nil
-    end,
-    timeout = 0,
-    whileDead = 1,
-    hideOnEscape = 1,
-}
 
 --=========================================================================--
 --  Helpers
@@ -288,12 +270,10 @@ function UnBot:InteractWithBot(name, button)
         return
     end
 
-    -- 3. Right-Click -> Contextual Dismiss / Remove / Release
+    -- 3. Right-Click -> Contextual Dismiss / Remove
     if button == "RightButton" then
         if IsInGroup(name) then
             self:UninviteBot(name)
-        elseif self.claimedState and self.claimedState[name] then
-            self:ConfirmReleaseClaimedBot(name)
         else
             local data = self.config and self.config.roster and self.config.roster[name]
             if data and data.altbot then
@@ -381,7 +361,7 @@ function UnBot:InitRoster()
     self.rosterFilter = "ALL"
     self.rosterSearchQuery = nil
     self.rosterOffset = 0
-    self.guildOffset = 0
+    self.lootOffset = 0
     self.rosterSelection = {}
     self.activeRosterTab = (self.config and self.config.activeRosterTab) or "account"
 
@@ -716,7 +696,6 @@ function UnBot:CommitClaimedSnapshot(rows)
         return a.name < b.name
     end)
     self.claimedSnapshotReady = true
-    if self.RefreshGuildView then self:RefreshGuildView() end
 end
 
 function UnBot:CommitCcSnapshot(rows)
@@ -733,75 +712,138 @@ function UnBot:CommitCcSnapshot(rows)
 end
 
 --=========================================================================--
---  Claimed Guild Bots Model
+--  Bot Loot History Model
 --=========================================================================--
 
-function UnBot:GetClaimedBots(filter)
+local QUALITY_HEX = {
+    [0] = "|cff9d9d9d", -- Poor
+    [1] = "|cffffffff", -- Common
+    [2] = "|cff1eff00", -- Uncommon
+    [3] = "|cff0070dd", -- Rare
+    [4] = "|cffa335ee", -- Epic
+    [5] = "|cffff8000", -- Legendary
+    [6] = "|cffe6cc80", -- Artifact
+}
+
+local QUALITY_NAMES = {
+    [-1] = "Any Qual",
+    [0]  = "Poor",
+    [1]  = "Common",
+    [2]  = "Uncommon",
+    [3]  = "Rare",
+    [4]  = "Epic",
+    [5]  = "Legendary",
+    [6]  = "Artifact",
+}
+
+local VOTE_LABEL = { need = "Need", greed = "Greed", disenchant = "Disenchant", pass = "Pass" }
+local VOTE_COLOR = { need = "|cff00ff00", greed = "|cffffd200", disenchant = "|cffa335ee", pass = "|cff9d9d9d" }
+
+function UnBot:GetLootQualityHex(q)
+    return (q and QUALITY_HEX[q]) or "|cffffffff"
+end
+
+function UnBot:GetLootQualityName(q)
+    return (q and QUALITY_NAMES[q]) or "Any Qual"
+end
+
+function UnBot:FormatCopper(copper)
+    copper = tonumber(copper) or 0
+    local g = math.floor(copper / 10000)
+    local s = math.floor(math.mod(copper, 10000) / 100)
+    local c = math.mod(copper, 100)
+    local text = ""
+    if g > 0 then text = text .. "|cffffd700" .. g .. "g|r " end
+    if g > 0 or s > 0 then text = text .. "|cffc7c7cf" .. s .. "s|r " end
+    return text .. "|cffeda55f" .. c .. "c|r"
+end
+
+function UnBot:GetLootHistory()
+    if not self.config then return self.lootHistory or {} end
+    if type(self.config.lootHistory) ~= "table" then
+        self.config.lootHistory = {}
+    end
+    return self.config.lootHistory
+end
+
+function UnBot:ClearLootLog()
+    if self.config then
+        self.config.lootHistory = {}
+    end
+    self.lootHistory = {}
+    self.lootOffset = 0
+    if self.RefreshLootLogView then self:RefreshLootLogView() end
+end
+
+local function lootRowKey(row)
+    return (row.ts or "") .. "|" .. (row.bot or "") .. "|" .. (row.event or "")
+        .. "|" .. tostring(row.itemId or "") .. "|" .. (row.item or "")
+end
+
+function UnBot:MergeLootRows(newRows)
+    local history = self:GetLootHistory()
+    local seen = {}
+    for i = 1, table.getn(history) do
+        seen[lootRowKey(history[i])] = true
+    end
+    local added = 0
+    for i = 1, table.getn(newRows) do
+        local r = newRows[i]
+        local k = lootRowKey(r)
+        if not seen[k] then
+            seen[k] = true
+            table.insert(history, 1, r)
+            added = added + 1
+        end
+    end
+    while table.getn(history) > 2000 do
+        table.remove(history)
+    end
+    return added
+end
+
+function UnBot:RequestLootLog(cursor)
+    if cursor and cursor ~= "" then
+        self:SendBotCommand("lootlog " .. cursor)
+    else
+        self:SendBotCommand("lootlog")
+    end
+end
+
+function UnBot:GetFilteredLoot()
+    local history = self:GetLootHistory()
+    local botFilter = self.lootBotFilter and string.lower(string.gsub(string.gsub(self.lootBotFilter, "^%s+", ""), "%s+$", "")) or ""
+    local itemFilter = self.lootItemFilter and string.lower(string.gsub(string.gsub(self.lootItemFilter, "^%s+", ""), "%s+$", "")) or ""
+    local qualityFilter = self.lootQualityFilter or -1
+    local typeFilter = self.lootTypeFilter or "all"
+
     local out = {}
-    filter = filter and string.lower(string.gsub(string.gsub(filter, "^%s+", ""), "%s+$", "")) or ""
-    for i = 1, table.getn(self.claimedBots) do
-        local bot = self.claimedBots[i]
-        if filter == "" or string.find(string.lower(bot.name), filter, 1, true) then
-            table.insert(out, bot)
+    for i = 1, table.getn(history) do
+        local r = history[i]
+        local match = true
+        if botFilter ~= "" and not string.find(string.lower(r.bot or ""), botFilter, 1, true) then
+            match = false
+        end
+        if match and itemFilter ~= "" and not string.find(string.lower(r.item or ""), itemFilter, 1, true) then
+            match = false
+        end
+        if match and qualityFilter >= 0 and (r.quality == nil or r.quality < qualityFilter) then
+            match = false
+        end
+        if match and typeFilter ~= "all" then
+            if typeFilter == "items" and (r.event ~= "StoreLootAction") then
+                match = false
+            elseif typeFilter == "rolls" and (r.event ~= "LootRoll") then
+                match = false
+            elseif typeFilter == "money" and (r.event ~= "LootMoney") then
+                match = false
+            end
+        end
+        if match then
+            table.insert(out, r)
         end
     end
     return out
-end
-
-function UnBot:GetClaimedEntry(name)
-    return name and self.claimedState[name] or nil
-end
-
-function UnBot:ToggleClaimedSelection(name, selected)
-    if not name or not self.claimedState[name] then return end
-    if selected then self.claimedSelection[name] = true else self.claimedSelection[name] = nil end
-    if self.RefreshGuildView then self:RefreshGuildView() end
-end
-
-function UnBot:SelectAllClaimed(selected)
-    self.claimedSelection = {}
-    if selected then
-        for i = 1, table.getn(self.claimedBots) do
-            self.claimedSelection[self.claimedBots[i].name] = true
-        end
-    end
-    if self.RefreshGuildView then self:RefreshGuildView() end
-end
-
-function UnBot:GetEligibleClaimedNames(action)
-    local names = {}
-    for i = 1, table.getn(self.claimedBots) do
-        local bot = self.claimedBots[i]
-        if self.claimedSelection[bot.name] then
-            if action == "invite" and not IsInGroup(bot.name) and (bot.serverState == "online" or bot.serverState == "in world") then
-                table.insert(names, bot.name)
-            elseif action == "summon" and (bot.serverState == "online" or bot.serverState == "in world") then
-                table.insert(names, bot.name)
-            end
-        end
-    end
-    return names
-end
-
-function UnBot:ConfirmReleaseClaimedBot(name)
-    if not name then return end
-    self.pendingClaimedRelease = name
-    local dialog = StaticPopup_Show("RETINUE_RELEASE_CLAIMED_BOT", name)
-end
-
-function UnBot:ReleaseClaimedBot(name)
-    if not name then return end
-    SendChatMessage("/gkick " .. name)
-    self.claimedState[name] = nil
-    for i = 1, table.getn(self.claimedBots) do
-        if self.claimedBots[i].name == name then
-            table.remove(self.claimedBots, i)
-            break
-        end
-    end
-    self.claimedSelection[name] = nil
-    self:Message("Released claimed bot '" .. name .. "' back to wandering pool")
-    if self.RefreshGuildView then self:RefreshGuildView() end
 end
 
 --=========================================================================--
@@ -897,11 +939,11 @@ function UnBot:CreateRosterFrame()
 
     self:CreateRosterTabs(f)
     self:CreateAccountView(f)
-    self:CreateGuildView(f)
     self:CreatePartyView(f)
     self:CreateRaidView(f)
     self:CreateRolesView(f)
     self:CreateCCView(f)
+    self:CreateLootLogView(f)
 
     local initialTab = (IsInGroup() and "party") or (self.config.activeRosterTab or "account")
     self:SelectRosterTab(initialTab)
@@ -916,11 +958,11 @@ function UnBot:CreateRosterTabs(parent)
     self.rosterTabButtons = {}
     local tabDefs = {
         { id = "account", label = "Account",  offset = 0 },
-        { id = "guild",   label = "Guild",    offset = 79 },
-        { id = "party",   label = "Party",    offset = 158 },
-        { id = "raid",    label = "Raid",     offset = 237 },
-        { id = "roles",   label = "Roles",    offset = 316 },
-        { id = "cc",      label = "CC Marks", offset = 395 },
+        { id = "party",   label = "Party",    offset = 79 },
+        { id = "raid",    label = "Raid",     offset = 158 },
+        { id = "roles",   label = "Roles",    offset = 237 },
+        { id = "cc",      label = "CC Marks", offset = 316 },
+        { id = "lootlog", label = "Loot Log", offset = 395 },
     }
 
     for i = 1, table.getn(tabDefs) do
@@ -951,18 +993,15 @@ function UnBot:SelectRosterTab(tabId)
     end
 
     if self.accountView then self.accountView:Hide() end
-    if self.guildView then self.guildView:Hide() end
     if self.partyView then self.partyView:Hide() end
     if self.raidView then self.raidView:Hide() end
     if self.rolesView then self.rolesView:Hide() end
     if self.ccView then self.ccView:Hide() end
+    if self.lootLogView then self.lootLogView:Hide() end
 
     if tabId == "account" and self.accountView then
         self.accountView:Show()
         self:RefreshRoster()
-    elseif tabId == "guild" and self.guildView then
-        self.guildView:Show()
-        self:RefreshGuildView()
     elseif tabId == "party" and self.partyView then
         self.partyView:Show()
         self:RefreshPartyView()
@@ -975,6 +1014,9 @@ function UnBot:SelectRosterTab(tabId)
     elseif tabId == "cc" and self.ccView then
         self.ccView:Show()
         self:RefreshCCView()
+    elseif tabId == "lootlog" and self.lootLogView then
+        self.lootLogView:Show()
+        self:RefreshLootLogView()
     end
 end
 
@@ -982,11 +1024,11 @@ function UnBot:RefreshActiveRosterView()
     if not UnBotRosterFrame or not UnBotRosterFrame:IsShown() then return end
     local tab = self.activeRosterTab or "account"
     if tab == "account" then self:RefreshRoster()
-    elseif tab == "guild" then self:RefreshGuildView()
     elseif tab == "party" then self:RefreshPartyView()
     elseif tab == "raid" then self:RefreshRaidView()
     elseif tab == "roles" then self:RefreshRolesView()
-    elseif tab == "cc" then self:RefreshCCView() end
+    elseif tab == "cc" then self:RefreshCCView()
+    elseif tab == "lootlog" then self:RefreshLootLogView() end
 end
 
 --=========================================================================--
@@ -1341,61 +1383,97 @@ function UnBot:CreateBulkButtons(parent)
 end
 
 --=========================================================================--
---  Tab 2: Guild View (Claimed Wandering Bots)
+--  Tab 6: Loot Log View (Bot Loot & Roll History)
 --=========================================================================--
 
-function UnBot:CreateGuildView(parent)
-    local v = CreateFrame("Frame", "UnBotGuildView", parent)
+function UnBot:CreateLootLogView(parent)
+    local v = CreateFrame("Frame", "UnBotLootLogView", parent)
     v:SetPoint("TOPLEFT", parent, "TOPLEFT", 12, -60)
     v:SetWidth(476); v:SetHeight(356)
-    self.guildView = v
+    self.lootLogView = v
 
-    -- Search Box
-    local search = CreateFrame("EditBox", "UnBotGuildSearch", v, "InputBoxTemplate")
-    search:SetWidth(150); search:SetHeight(20)
-    search:SetPoint("TOPLEFT", v, "TOPLEFT", 6, -4)
-    search:SetAutoFocus(false)
-    search:SetScript("OnTextChanged", function()
-        UnBot.guildFilter = this:GetText() or ""
-        UnBot.guildOffset = 0
-        UnBot:RefreshGuildView()
+    -- Filters Bar
+    local botSearch = CreateFrame("EditBox", "UnBotLootBotSearch", v, "InputBoxTemplate")
+    botSearch:SetWidth(80); botSearch:SetHeight(20)
+    botSearch:SetPoint("TOPLEFT", v, "TOPLEFT", 6, -4)
+    botSearch:SetAutoFocus(false)
+    botSearch:SetScript("OnTextChanged", function()
+        UnBot.lootBotFilter = this:GetText() or ""
+        UnBot.lootOffset = 0
+        UnBot:RefreshLootLogView()
     end)
-    v.searchBox = search
+    v.botSearch = botSearch
 
-    local clear = CreateFrame("Button", nil, v, "UIPanelButtonTemplate")
-    clear:SetWidth(42); clear:SetHeight(18)
-    clear:SetPoint("LEFT", search, "RIGHT", 4, 0)
-    clear:SetText("Clear")
-    clear:SetScript("OnClick", function()
-        search:SetText("")
-        UnBot.guildFilter = ""
-        UnBot.guildOffset = 0
-        UnBot:RefreshGuildView()
+    local itemSearch = CreateFrame("EditBox", "UnBotLootItemSearch", v, "InputBoxTemplate")
+    itemSearch:SetWidth(95); itemSearch:SetHeight(20)
+    itemSearch:SetPoint("LEFT", botSearch, "RIGHT", 6, 0)
+    itemSearch:SetAutoFocus(false)
+    itemSearch:SetScript("OnTextChanged", function()
+        UnBot.lootItemFilter = this:GetText() or ""
+        UnBot.lootOffset = 0
+        UnBot:RefreshLootLogView()
+    end)
+    v.itemSearch = itemSearch
+
+    local typeBtn = CreateFrame("Button", "UnBotLootTypeBtn", v, "UIPanelButtonTemplate")
+    typeBtn:SetWidth(56); typeBtn:SetHeight(20)
+    typeBtn:SetPoint("LEFT", itemSearch, "RIGHT", 4, 0)
+    typeBtn:SetText("All")
+    typeBtn:SetScript("OnClick", function()
+        local cur = UnBot.lootTypeFilter or "all"
+        local nextType = "all"
+        if cur == "all" then nextType = "items"
+        elseif cur == "items" then nextType = "rolls"
+        elseif cur == "rolls" then nextType = "money"
+        else nextType = "all" end
+        UnBot.lootTypeFilter = nextType
+        this:SetText(string.upper(string.sub(nextType, 1, 1)) .. string.sub(nextType, 2))
+        UnBot.lootOffset = 0
+        UnBot:RefreshLootLogView()
+    end)
+    v.typeBtn = typeBtn
+
+    local qualBtn = CreateFrame("Button", "UnBotLootQualBtn", v, "UIPanelButtonTemplate")
+    qualBtn:SetWidth(82); qualBtn:SetHeight(20)
+    qualBtn:SetPoint("LEFT", typeBtn, "RIGHT", 4, 0)
+    qualBtn:SetText("Any Qual")
+    qualBtn:SetScript("OnClick", function()
+        local cur = UnBot.lootQualityFilter or -1
+        cur = cur + 1
+        if cur > 4 then cur = -1 end
+        UnBot.lootQualityFilter = cur
+        if cur < 0 then
+            this:SetText("Any Qual")
+        else
+            this:SetText(UnBot:GetLootQualityName(cur))
+        end
+        UnBot.lootOffset = 0
+        UnBot:RefreshLootLogView()
+    end)
+    v.qualBtn = qualBtn
+
+    local syncBtn = CreateFrame("Button", "UnBotLootSyncBtn", v, "UIPanelButtonTemplate")
+    syncBtn:SetWidth(50); syncBtn:SetHeight(20)
+    syncBtn:SetPoint("LEFT", qualBtn, "RIGHT", 4, 0)
+    syncBtn:SetText("Sync")
+    syncBtn:SetScript("OnClick", function()
+        UnBot:RequestLootLog()
     end)
 
-    local countLabel = v:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    countLabel:SetPoint("TOPRIGHT", v, "TOPRIGHT", -8, -6)
-    countLabel:SetTextColor(0.8, 0.8, 0.8)
-    v.countLabel = countLabel
-
-    -- CheckAll Checkbox
-    local checkAll = CreateFrame("CheckButton", "UnBotGuildCheckAll", v, "UICheckButtonTemplate")
-    checkAll:SetWidth(20); checkAll:SetHeight(20)
-    checkAll:SetPoint("TOPLEFT", v, "TOPLEFT", 4, -26)
-    checkAll:SetScript("OnClick", function()
-        UnBot:SelectAllClaimed(this:GetChecked() and true or false)
+    local clearBtn = CreateFrame("Button", "UnBotLootClearBtn", v, "UIPanelButtonTemplate")
+    clearBtn:SetWidth(50); clearBtn:SetHeight(20)
+    clearBtn:SetPoint("LEFT", syncBtn, "RIGHT", 4, 0)
+    clearBtn:SetText("Clear")
+    clearBtn:SetScript("OnClick", function()
+        UnBot:ClearLootLog()
     end)
-    v.checkAll = checkAll
 
-    -- Headers
+    -- Column Headers
     local headers = {
-        { text = "Name", x = 28, width = 94 },
-        { text = "Level/Class", x = 124, width = 82 },
-        { text = "Gear", x = 208, width = 64 },
-        { text = "Status", x = 274, width = 64 },
-        { text = "Bag", x = 340, width = 24 },
-        { text = "Role", x = 366, width = 50 },
-        { text = "Kick", x = 418, width = 28 },
+        { text = "Time", x = 6, width = 50 },
+        { text = "Bot", x = 58, width = 72 },
+        { text = "Loot / Event / Roll", x = 132, width = 210 },
+        { text = "Source", x = 344, width = 100 },
     }
     for i = 1, table.getn(headers) do
         local h = headers[i]
@@ -1405,272 +1483,163 @@ function UnBot:CreateGuildView(parent)
         fs:SetText(h.text); fs:SetTextColor(0.6, 0.6, 0.6)
     end
 
-    -- Rows
-    local GUILD_ROWS = 7
-    local ROW_H = 34
+    -- Rows: 11 rows of height 22
+    local LOOT_ROWS = 11
+    local ROW_H = 22
     v.rows = {}
-    for i = 1, GUILD_ROWS do
-        local row = CreateFrame("Button", "UnBotGuildRow"..i, v)
+    for i = 1, LOOT_ROWS do
+        local row = CreateFrame("Button", "UnBotLootRow" .. i, v)
         row:SetWidth(444); row:SetHeight(ROW_H - 2)
         row:SetPoint("TOPLEFT", v, "TOPLEFT", 4, -46 - (i - 1) * ROW_H)
         row:RegisterForClicks("LeftButtonUp", "RightButtonUp")
         row:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight")
         row:EnableMouseWheel(true)
         row:SetScript("OnMouseWheel", function()
-            UnBot:ScrollGuild(-arg1)
+            UnBot:ScrollLootLog(-arg1)
         end)
 
-        -- Class Accent Bar (TortoiseBotsManager parity)
-        local accent = row:CreateTexture(nil, "ARTWORK")
-        accent:SetWidth(3); accent:SetHeight(ROW_H - 6)
-        accent:SetPoint("LEFT", row, "LEFT", 0, 0)
-        row.accent = accent
+        local timeText = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        timeText:SetPoint("LEFT", row, "LEFT", 2, 0); timeText:SetWidth(50); timeText:SetJustifyH("LEFT")
+        row.timeText = timeText
 
-        local check = CreateFrame("CheckButton", nil, row, "UICheckButtonTemplate")
-        check:SetWidth(20); check:SetHeight(20)
-        check:SetPoint("LEFT", row, "LEFT", 4, 0)
-        check:EnableMouseWheel(true)
-        check:SetScript("OnMouseWheel", function() UnBot:ScrollGuild(-arg1) end)
-        check:SetScript("OnClick", function()
-            local bot = this:GetParent().botEntry
-            if bot then UnBot:ToggleClaimedSelection(bot.name, this:GetChecked() and true or false) end
-        end)
-        row.check = check
+        local botText = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+        botText:SetPoint("LEFT", row, "LEFT", 54, 0); botText:SetWidth(72); botText:SetJustifyH("LEFT")
+        row.botText = botText
 
-        local nameText = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-        nameText:SetPoint("LEFT", row, "LEFT", 26, 0); nameText:SetWidth(92); nameText:SetJustifyH("LEFT")
-        row.nameText = nameText
+        local itemText = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        itemText:SetPoint("LEFT", row, "LEFT", 128, 0); itemText:SetWidth(210); itemText:SetJustifyH("LEFT")
+        row.itemText = itemText
 
-        local lvlClass = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-        lvlClass:SetPoint("LEFT", row, "LEFT", 120, 0); lvlClass:SetWidth(82); lvlClass:SetJustifyH("LEFT")
-        row.lvlClass = lvlClass
-
-        local gearBadge = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-        gearBadge:SetPoint("LEFT", row, "LEFT", 204, 0); gearBadge:SetWidth(64); gearBadge:SetJustifyH("LEFT")
-        row.gearBadge = gearBadge
-
-        local statusText = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-        statusText:SetPoint("LEFT", row, "LEFT", 270, 0); statusText:SetWidth(64); statusText:SetJustifyH("LEFT")
-        row.statusText = statusText
-
-        local bagBtn = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
-        bagBtn:SetWidth(22); bagBtn:SetHeight(20)
-        bagBtn:SetPoint("LEFT", row, "LEFT", 338, 0)
-        bagBtn:SetText("B")
-        bagBtn:EnableMouseWheel(true)
-        bagBtn:SetScript("OnMouseWheel", function() UnBot:ScrollGuild(-arg1) end)
-        bagBtn:SetScript("OnClick", function()
-            local bot = this:GetParent().botEntry
-            if bot then UnBot:ShowItemWindow("view", bot.name) end
-        end)
-        row.bagBtn = bagBtn
-
-        local roleBtn = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
-        roleBtn:SetWidth(48); roleBtn:SetHeight(20)
-        roleBtn:SetPoint("LEFT", row, "LEFT", 364, 0)
-        roleBtn:SetText("Role")
-        roleBtn:EnableMouseWheel(true)
-        roleBtn:SetScript("OnMouseWheel", function() UnBot:ScrollGuild(-arg1) end)
-        roleBtn:SetScript("OnClick", function()
-            local bot = this:GetParent().botEntry
-            if bot then
-                if Retinue and Retinue.Roles and Retinue.Roles.CycleBotRole then
-                    Retinue.Roles.CycleBotRole(bot.name, bot.classId)
-                end
-                UnBot:RefreshGuildView()
-            end
-        end)
-        row.roleBtn = roleBtn
-
-        local relBtn = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
-        relBtn:SetWidth(28); relBtn:SetHeight(20)
-        relBtn:SetPoint("LEFT", row, "LEFT", 414, 0)
-        relBtn:SetText("Rel")
-        relBtn:EnableMouseWheel(true)
-        relBtn:SetScript("OnMouseWheel", function() UnBot:ScrollGuild(-arg1) end)
-        relBtn:SetScript("OnClick", function()
-            local bot = this:GetParent().botEntry
-            if bot then UnBot:ConfirmReleaseClaimedBot(bot.name) end
-        end)
-        row.relBtn = relBtn
-
-        row:SetScript("OnClick", function()
-            local bot = this.botEntry or (this.botName and UnBot:GetClaimedEntry(this.botName))
-            local name = (bot and bot.name) or this.botName
-            if name then
-                UnBot:InteractWithBot(name, arg1)
-            end
-        end)
+        local sourceText = row:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+        sourceText:SetPoint("LEFT", row, "LEFT", 340, 0); sourceText:SetWidth(100); sourceText:SetJustifyH("LEFT")
+        row.sourceText = sourceText
 
         row:SetScript("OnEnter", function()
-            local bot = this.botEntry or (this.botName and UnBot:GetClaimedEntry(this.botName))
-            if not bot then return end
-            GameTooltip:SetOwner(this, "ANCHOR_RIGHT")
-            GameTooltip:SetText(bot.name)
-            local c = (UnBot.GetClassColor and UnBot:GetClassColor(bot.classId or bot.classToken)) or {1, 1, 1}
-            local cName = (UnBot.GetClassName and UnBot:GetClassName(bot.classId or bot.classToken)) or "Warrior"
-            GameTooltip:AddLine("Level " .. (bot.level or 0) .. " " .. cName, c[1], c[2], c[3])
-            if bot.location and bot.location ~= "" then
-                GameTooltip:AddLine("Location: " .. bot.location, 0.7, 0.7, 0.7)
+            local r = this.lootEntry
+            if not r then return end
+            if r.itemId and tonumber(r.itemId) and r.event ~= "LootMoney" then
+                GameTooltip:SetOwner(this, "ANCHOR_RIGHT")
+                GameTooltip:SetHyperlink("item:" .. r.itemId .. ":0:0:0")
+                GameTooltip:Show()
             end
-            if bot.gearLocked then
-                GameTooltip:AddLine("Gear: Hard-Locked (Lvl 60) - 100% player managed", 1, 0.82, 0)
-            else
-                GameTooltip:AddLine("Gear: Leveling Freedom (1-59)", 0.3, 0.9, 0.3)
-            end
-            if IsInGroup(bot.name) then
-                GameTooltip:AddLine("Status: In party/raid", 0.2, 0.9, 0.9)
-            elseif bot.serverState == "online" or bot.serverState == "in world" then
-                GameTooltip:AddLine("Status: Online in world", 0.3, 1.0, 0.3)
-            else
-                GameTooltip:AddLine("Status: " .. (bot.serverState or "Offline"), 0.6, 0.6, 0.6)
-            end
-            GameTooltip:AddLine("Click: target & invite | Shift-click: bags | Right-click: release", 0.7, 0.7, 0.7)
-            GameTooltip:Show()
         end)
         row:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
+        row:SetScript("OnClick", function()
+            local r = this.lootEntry
+            if not r then return end
+            if IsShiftKeyDown and IsShiftKeyDown() and r.itemId and tonumber(r.itemId) and ChatFrameEditBox and ChatFrameEditBox:IsShown() then
+                ChatFrameEditBox:Insert(UnBot:GetLootQualityHex(r.quality) .. "|Hitem:" .. r.itemId .. ":0:0:0|h[" .. (r.item or ("item:" .. r.itemId)) .. "]|h|r")
+            end
+        end)
 
         v.rows[i] = row
     end
 
-    local scrollbar = CreateScrollBar(v, "UnBotGuildScroll", 454, -46, 16, 238, function(delta)
-        UnBot:ScrollGuild(delta)
+    local scrollbar = CreateScrollBar(v, "UnBotLootScroll", 454, -46, 16, 238, function(delta)
+        UnBot:ScrollLootLog(delta)
     end)
     scrollbar.onValueChanged = function(val)
-        UnBot.guildOffset = val
-        UnBot:RefreshGuildView()
+        UnBot.lootOffset = val
+        UnBot:RefreshLootLogView()
     end
     v.scrollBar = scrollbar
 
     v:EnableMouseWheel(true)
     v:SetScript("OnMouseWheel", function()
-        UnBot:ScrollGuild(-arg1)
+        UnBot:ScrollLootLog(-arg1)
     end)
 
     local emptyMsg = v:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     emptyMsg:SetPoint("CENTER", v, "CENTER", 0, 0)
     emptyMsg:SetWidth(420); emptyMsg:SetJustifyH("CENTER")
-    emptyMsg:SetText("|cffd8a657No Claimed Guild Bots|r\n\nInvite autonomous wandering bots in the world using:\n|cff4ecb5a/ginvite <BotName>|r\n\nClaimed bots preserve gear, never vendor at 60, and can be geared & summoned here.")
+    emptyMsg:SetText("|cffd8a657No Loot History Logged|r\n\nParty bots log looted items, coins, and roll decisions here.\nClick [ Sync ] to retrieve server loot records.")
     v.emptyMsg = emptyMsg
 
-    -- Bottom Action Bar
-    local bar = CreateFrame("Frame", nil, v)
-    bar:SetPoint("BOTTOMLEFT", v, "BOTTOMLEFT", 6, 8)
-    bar:SetWidth(464); bar:SetHeight(30)
-
-    local selCount = bar:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    selCount:SetPoint("LEFT", bar, "LEFT", 4, 0)
-    selCount:SetText("Selected: 0"); selCount:SetTextColor(0.7, 0.7, 0.7)
-    v.selCount = selCount
-
-    local inviteRaid = CreateFrame("Button", nil, bar, "UIPanelButtonTemplate")
-    inviteRaid:SetWidth(110); inviteRaid:SetHeight(22)
-    inviteRaid:SetPoint("LEFT", selCount, "RIGHT", 16, 0)
-    inviteRaid:SetText("Invite to Raid")
-    inviteRaid:SetScript("OnClick", function()
-        local names = UnBot:GetEligibleClaimedNames("invite")
-        if table.getn(names) > 0 then
-            UnBot:QueueRosterBatch("invite", names)
-        else
-            UnBot:Message("No eligible online claimed bots selected")
-        end
-    end)
-
-    local summonRaid = CreateFrame("Button", nil, bar, "UIPanelButtonTemplate")
-    summonRaid:SetWidth(110); summonRaid:SetHeight(22)
-    summonRaid:SetPoint("LEFT", inviteRaid, "RIGHT", 6, 0)
-    summonRaid:SetText("Summon to Raid")
-    summonRaid:SetScript("OnClick", function()
-        local names = UnBot:GetEligibleClaimedNames("summon")
-        if table.getn(names) > 0 then
-            UnBot:QueueRosterBatch("summon", names)
-        else
-            UnBot:Message("No eligible online claimed bots selected")
-        end
-    end)
-
-    local syncBtn = CreateFrame("Button", nil, bar, "UIPanelButtonTemplate")
-    syncBtn:SetWidth(64); syncBtn:SetHeight(22)
-    syncBtn:SetPoint("LEFT", summonRaid, "RIGHT", 6, 0)
-    syncBtn:SetText("Sync")
-    syncBtn:SetScript("OnClick", function()
-        UnBot:RequestServerRoster(true)
-    end)
+    local countLabel = v:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    countLabel:SetPoint("BOTTOMLEFT", v, "BOTTOMLEFT", 10, 10)
+    countLabel:SetTextColor(0.7, 0.7, 0.7)
+    v.countLabel = countLabel
 end
 
-function UnBot:RefreshGuildView()
-    if not self.guildView or not self.guildView:IsShown() then return end
-    local bots = self:GetClaimedBots(self.guildFilter)
-    local total = table.getn(self.claimedBots)
-    local filteredCount = table.getn(bots)
-    local maxOffset = filteredCount - 7
+function UnBot:RefreshLootLogView()
+    if not self.lootLogView or not self.lootLogView:IsShown() then return end
+    local list = self:GetFilteredLoot()
+    local total = table.getn(list)
+    local maxOffset = total - 11
     if maxOffset < 0 then maxOffset = 0 end
 
-    self.guildOffset = self.guildOffset or 0
-    if self.guildOffset > maxOffset then self.guildOffset = maxOffset end
-    if self.guildOffset < 0 then self.guildOffset = 0 end
+    self.lootOffset = self.lootOffset or 0
+    if self.lootOffset > maxOffset then self.lootOffset = maxOffset end
+    if self.lootOffset < 0 then self.lootOffset = 0 end
 
-    if self.guildView.scrollBar then
-        self.guildView.scrollBar:Update(self.guildOffset, maxOffset)
+    if self.lootLogView.scrollBar then
+        self.lootLogView.scrollBar:Update(self.lootOffset, maxOffset)
     end
-
-    local onlineCount = 0
-    for i = 1, total do
-        if self.claimedBots[i].serverState == "online" or self.claimedBots[i].serverState == "in world" then
-            onlineCount = onlineCount + 1
-        end
-    end
-    self.guildView.countLabel:SetText("Claimed: " .. total .. "  (|cff4ecb5a" .. onlineCount .. " online|r)")
 
     if total == 0 then
-        self.guildView.emptyMsg:Show()
+        self.lootLogView.emptyMsg:Show()
     else
-        self.guildView.emptyMsg:Hide()
+        self.lootLogView.emptyMsg:Hide()
     end
 
-    local selTotal = 0
-    for _ in pairs(self.claimedSelection) do selTotal = selTotal + 1 end
-    self.guildView.selCount:SetText("Selected: " .. selTotal)
+    self.lootLogView.countLabel:SetText("Entries: " .. total)
 
-    for i = 1, 7 do
-        local row = self.guildView.rows[i]
-        local bot = bots[i + self.guildOffset]
-        if bot then
-            row.botEntry = bot
-            row.botName = bot.name
-            row.check:SetChecked(self.claimedSelection[bot.name] and 1 or nil)
-            local c = (self.GetClassColor and self:GetClassColor(bot.className or bot.classId)) or {1, 1, 1}
-            row.nameText:SetText(bot.name); row.nameText:SetTextColor(c[1], c[2], c[3])
-            if row.accent then
-                row.accent:SetTexture(c[1], c[2], c[3], 0.95)
-                row.accent:Show()
-            end
-            local cName = bot.className or (self.GetClassName and self:GetClassName(bot.classId)) or "Warrior"
-            local displayCls = (type(cName) == "string" and string.len(cName) > 4) and string.sub(cName, 1, 4) or tostring(cName or "")
-            row.lvlClass:SetText("Lvl " .. (bot.level or "?") .. " " .. displayCls)
-            if bot.gearLocked then
-                row.gearBadge:SetText("|cffffd200[Locked]|r")
+    for i = 1, 11 do
+        local row = self.lootLogView.rows[i]
+        local r = list[i + self.lootOffset]
+        if r then
+            row.lootEntry = r
+            local _, _, tail = string.find(r.ts or "", "(%d%d:%d%d:%d%d)%s*$")
+            row.timeText:SetText(tail or r.ts or "")
+            row.botText:SetText(r.bot or "")
+            local c = (self.GetClassColor and self:GetClassColor(r.bot)) or {1, 0.82, 0}
+            row.botText:SetTextColor(c[1], c[2], c[3])
+
+            if r.event == "LootMoney" then
+                row.itemText:SetText(self:FormatCopper(r.copper))
+            elseif r.event == "LootRoll" then
+                local vote = VOTE_LABEL[r.vote] or r.vote or "?"
+                local vCol = VOTE_COLOR[r.vote] or "|cffffffff"
+                local reasonStr = r.reason and (" (" .. r.reason .. ")") or ""
+                row.itemText:SetText(vCol .. "[" .. vote .. "]|r " .. self:GetLootQualityHex(r.quality) .. (r.item or "?") .. "|r" .. reasonStr)
             else
-                row.gearBadge:SetText("|cff4ecb5a[Leveling]|r")
-            end
-            local isOnline = (bot.serverState == "online" or bot.serverState == "in world")
-            if isOnline then
-                row.statusText:SetText("|cff4ecb5aOnline|r")
-            else
-                row.statusText:SetText("|cff888888Offline|r")
+                row.itemText:SetText(self:GetLootQualityHex(r.quality) .. "[" .. (r.item or ("item #" .. tostring(r.itemId or "?"))) .. "]|r")
             end
 
-            local curRoleId = (Retinue and Retinue.Roles and Retinue.Roles.GetBotRole and Retinue.Roles.GetBotRole(bot.name, bot.classId)) or "dps"
-            local roleLabel = (Retinue and Retinue.Roles and Retinue.Roles.GetRoleLabel and Retinue.Roles.GetRoleLabel(bot.classId, curRoleId, "Role")) or "Role"
-            row.roleBtn:SetText(string.sub(roleLabel, 1, 5))
+            local src = r.source or ""
+            if src ~= "" then
+                row.sourceText:SetText((r.sourceType or "other") .. ": " .. src)
+            else
+                row.sourceText:SetText(r.sourceType or "")
+            end
             row:Show()
         else
-            row.botEntry = nil
-            row.botName = nil
-            if row.accent then row.accent:Hide() end
+            row.lootEntry = nil
             row:Hide()
         end
     end
+end
+
+function UnBot:ScrollLootLog(delta)
+    local list = self:GetFilteredLoot()
+    local total = table.getn(list)
+    local maxOffset = total - 11
+    if maxOffset < 0 then maxOffset = 0 end
+
+    self.lootOffset = (self.lootOffset or 0) + delta
+    if self.lootOffset < 0 then self.lootOffset = 0 end
+    if self.lootOffset > maxOffset then self.lootOffset = maxOffset end
+    self:RefreshLootLogView()
+end
+
+function UnBot:ShowLootLog()
+    if not UnBotRosterFrame then self:CreateRosterFrame() end
+    if not UnBotRosterFrame:IsShown() then
+        UnBotRosterFrame:Show()
+    end
+    self:SelectRosterTab("lootlog")
+    self:RequestLootLog()
 end
 
 --=========================================================================--
@@ -1732,6 +1701,64 @@ function UnBot:CreatePartyView(parent)
         end)
         row.bagBtn = bagBtn
 
+        local btnBoost = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
+        btnBoost:SetWidth(26); btnBoost:SetHeight(20)
+        btnBoost:SetPoint("RIGHT", bagBtn, "LEFT", -4, 0)
+        btnBoost:SetText("+B")
+        btnBoost:SetScript("OnClick", function()
+            local p = this:GetParent()
+            local name = p.partyName
+            if not name or name == "" then return end
+            if UnBot.boostTarget == name then
+                SendChatMessage("boost target -" .. name, "PARTY")
+                UnBot.boostTarget = nil
+                UnBot:Message("Cleared boost target priority on " .. name)
+            else
+                SendChatMessage("boost target +" .. name, "PARTY")
+                UnBot.boostTarget = name
+                UnBot:Message("Set boost target priority on " .. name)
+            end
+            UnBot:RefreshPartyView()
+        end)
+        btnBoost:SetScript("OnEnter", function()
+            GameTooltip:SetOwner(this, "ANCHOR_RIGHT")
+            GameTooltip:SetText("Boost Target Priority", 1, 1, 1)
+            GameTooltip:AddLine("Orders buffers/casters to prioritize Power Infusion, Bloodlust, and combat buffs on " .. (this:GetParent().partyName or "this member") .. ".", 0.8, 0.8, 0.8)
+            GameTooltip:AddLine("Click to toggle.", 0.6, 0.6, 0.6)
+            GameTooltip:Show()
+        end)
+        btnBoost:SetScript("OnLeave", function() GameTooltip:Hide() end)
+        row.btnBoost = btnBoost
+
+        local btnHeal = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
+        btnHeal:SetWidth(26); btnHeal:SetHeight(20)
+        btnHeal:SetPoint("RIGHT", btnBoost, "LEFT", -4, 0)
+        btnHeal:SetText("+H")
+        btnHeal:SetScript("OnClick", function()
+            local p = this:GetParent()
+            local name = p.partyName
+            if not name or name == "" then return end
+            if UnBot.focusHealTarget == name then
+                SendChatMessage("focus heal -" .. name, "PARTY")
+                UnBot.focusHealTarget = nil
+                UnBot:Message("Cleared focus heal priority on " .. name)
+            else
+                SendChatMessage("focus heal +" .. name, "PARTY")
+                UnBot.focusHealTarget = name
+                UnBot:Message("Set focus heal priority on " .. name)
+            end
+            UnBot:RefreshPartyView()
+        end)
+        btnHeal:SetScript("OnEnter", function()
+            GameTooltip:SetOwner(this, "ANCHOR_RIGHT")
+            GameTooltip:SetText("Focus Heal Priority", 1, 1, 1)
+            GameTooltip:AddLine("Orders party healers to prioritize healing " .. (this:GetParent().partyName or "this member") .. ".", 0.8, 0.8, 0.8)
+            GameTooltip:AddLine("Click to toggle.", 0.6, 0.6, 0.6)
+            GameTooltip:Show()
+        end)
+        btnHeal:SetScript("OnLeave", function() GameTooltip:Hide() end)
+        row.btnHeal = btnHeal
+
         row.roleButtons = {}
         for b = 1, 4 do
             local btn = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
@@ -1786,9 +1813,12 @@ function UnBot:RefreshPartyView()
             row.partyName = name
 
             if unit == "player" then
+                local extra = ""
+                if UnBot.focusHealTarget == name then extra = extra .. "  |cff00ff00[Heal Focus]|r" end
+                if UnBot.boostTarget == name then extra = extra .. "  |cffffaa00[Boost Target]|r" end
                 row.nameText:SetText(name .. "  |cffd8a657(Master)|r")
                 row.nameText:SetTextColor(c[1], c[2], c[3])
-                row.descText:SetText("Set your combat role:")
+                row.descText:SetText("Set your combat role:" .. extra)
                 row.bagBtn:Hide()
                 row.ccIcon:Hide(); row.ccLabel:Hide()
 
@@ -1813,9 +1843,12 @@ function UnBot:RefreshPartyView()
                     end
                 end
             else
+                local extra = ""
+                if UnBot.focusHealTarget == name then extra = extra .. "  |cff00ff00[Heal Focus]|r" end
+                if UnBot.boostTarget == name then extra = extra .. "  |cffffaa00[Boost Target]|r" end
                 row.nameText:SetText(name)
                 row.nameText:SetTextColor(c[1], c[2], c[3])
-                row.descText:SetText("Bot companion")
+                row.descText:SetText("Bot companion" .. extra)
                 row.bagBtn:Show()
 
                 -- CC Mark display
@@ -1854,9 +1887,31 @@ function UnBot:RefreshPartyView()
                     end
                 end
             end
+            if row.btnHeal then
+                if UnBot.focusHealTarget == name then
+                    row.btnHeal:LockHighlight()
+                    row.btnHeal:SetText("|cff00ff00+H|r")
+                else
+                    row.btnHeal:UnlockHighlight()
+                    row.btnHeal:SetText("+H")
+                end
+                row.btnHeal:Show()
+            end
+            if row.btnBoost then
+                if UnBot.boostTarget == name then
+                    row.btnBoost:LockHighlight()
+                    row.btnBoost:SetText("|cffffaa00+B|r")
+                else
+                    row.btnBoost:UnlockHighlight()
+                    row.btnBoost:SetText("+B")
+                end
+                row.btnBoost:Show()
+            end
             row:Show()
         else
             row.partyUnit = nil; row.partyName = nil
+            if row.btnHeal then row.btnHeal:Hide() end
+            if row.btnBoost then row.btnBoost:Hide() end
             row:Hide()
         end
     end
@@ -2434,18 +2489,6 @@ function UnBot:ScrollRoster(delta)
     if self.rosterOffset < 0 then self.rosterOffset = 0 end
     if self.rosterOffset > maxOffset then self.rosterOffset = maxOffset end
     self:RefreshRoster()
-end
-
-function UnBot:ScrollGuild(delta)
-    local bots = self:GetClaimedBots(self.guildFilter)
-    local total = table.getn(bots)
-    local maxOffset = total - 7
-    if maxOffset < 0 then maxOffset = 0 end
-
-    self.guildOffset = (self.guildOffset or 0) + delta
-    if self.guildOffset < 0 then self.guildOffset = 0 end
-    if self.guildOffset > maxOffset then self.guildOffset = maxOffset end
-    self:RefreshGuildView()
 end
 
 function UnBot:GetFilteredRoster()

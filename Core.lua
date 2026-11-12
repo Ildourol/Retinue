@@ -463,6 +463,222 @@ function UnBot:OnTBMSystemMessage(msg)
         return true
     end
 
+    if self.ParseActionMessage and self:ParseActionMessage(msg) then
+        return true
+    end
+
+    if self.ParseLootLogMessage and self:ParseLootLogMessage(msg) then
+        return true
+    end
+
+    return false
+end
+
+function UnBot:ParseActionMessage(msg)
+    if not msg or msg == "" then return false end
+
+    local ackPrefix = "TBM:ACTION_ACK|"
+    if string.sub(msg, 1, string.len(ackPrefix)) == ackPrefix then
+        local raw = string.sub(msg, string.len(ackPrefix) + 1)
+        local parts = {}
+        local iter = string.gmatch or string.gfind
+        for part in iter(raw, "[^|]+") do
+            table.insert(parts, part)
+        end
+        local intent = parts[1] or ""
+        local scope = parts[2] or ""
+        local count = tonumber(parts[3]) or 0
+        local executor = parts[4] or "-"
+
+        self.lastActionAck = {
+            intent = intent,
+            scope = scope,
+            count = count,
+            executor = executor
+        }
+        self.lastActionError = nil
+
+        -- Stance ACK: TBM:ACTION_ACK|stance|party|N|<option>
+        if intent == "stance" then
+            if executor ~= "-" and executor ~= "" then
+                self.currentStance = string.lower(executor)
+                if self.RefreshActionGroupGrid and self.actionGroupFrame and self.actionGroupFrame:IsShown() then
+                    self:RefreshActionGroupGrid()
+                end
+            end
+            return true
+        end
+
+        -- Spread ACK: TBM:ACTION_ACK|behavior spread|party|N|on/off
+        if string.find(intent, "^behavior%s+spread") or intent == "spread" then
+            if executor == "on" or executor == "1" then
+                self.spreadActive = true
+            elseif executor == "off" or executor == "0" then
+                self.spreadActive = false
+            end
+            if self.RefreshActionGroupGrid and self.actionGroupFrame and self.actionGroupFrame:IsShown() then
+                self:RefreshActionGroupGrid()
+            end
+            return true
+        end
+
+        -- Party toggles: aoe, autocc, loot
+        if intent == "aoe" or intent == "autocc" or intent == "loot" then
+            if self.botStates then
+                for name, st in pairs(self.botStates) do
+                    if executor == "on" or executor == "off" then
+                        st[intent] = executor
+                    end
+                end
+            end
+            if self.RefreshActionGroupGrid and self.actionGroupFrame and self.actionGroupFrame:IsShown() then
+                self:RefreshActionGroupGrid()
+            end
+            return true
+        end
+
+        -- CC marks
+        local _, _, ccMark = string.find(intent, "^cc%s+(%a+)")
+        if ccMark and executor ~= "-" and self.ccAssignments then
+            self.ccAssignments[executor] = string.lower(ccMark)
+            if self.RefreshPartyView and self.rosterFrame and self.rosterFrame:IsShown() then
+                self:RefreshPartyView()
+            end
+            return true
+        end
+        if string.find(intent, "^cc%s+clear") then
+            if scope == "party" and self.ccAssignments then
+                self.ccAssignments = {}
+            elseif executor ~= "-" and self.ccAssignments then
+                self.ccAssignments[executor] = nil
+            end
+            if self.RefreshPartyView and self.rosterFrame and self.rosterFrame:IsShown() then
+                self:RefreshPartyView()
+            end
+            return true
+        end
+
+        return true
+    end
+
+    local errPrefix = "TBM:ACTION_ERR|"
+    if string.sub(msg, 1, string.len(errPrefix)) == errPrefix then
+        local raw = string.sub(msg, string.len(errPrefix) + 1)
+        local parts = {}
+        local iter = string.gmatch or string.gfind
+        for part in iter(raw, "[^|]+") do
+            table.insert(parts, part)
+        end
+        local intent = parts[1] or ""
+        local code = parts[2] or "error"
+        local message = parts[3] or "Action rejected"
+
+        self.lastActionError = {
+            intent = intent,
+            code = code,
+            message = message
+        }
+        self:Message("|cffff4444[Action Error]|r " .. message)
+        return true
+    end
+
+    return false
+end
+
+--=========================================================================--
+--  Loot History Protocol Parser (TBM:LOOT)
+--=========================================================================--
+
+local KNOWN_LOOT_EVENTS = { StoreLootAction = true, LootMoney = true, LootRoll = true }
+
+function UnBot:ParseLootLine(msg)
+    if string.sub(msg or "", 1, 9) ~= "TBM:LOOT|" then return nil end
+    local raw = string.sub(msg, 10)
+    local fields = {}
+    local start = 1
+    while true do
+        local pos = string.find(raw, "|", start, true)
+        if not pos then
+            table.insert(fields, string.sub(raw, start))
+            break
+        end
+        table.insert(fields, string.sub(raw, start, pos - 1))
+        start = pos + 1
+    end
+    if table.getn(fields) < 8 then return nil end
+
+    local ts = fields[1]
+    local bot = fields[2]
+    local event = fields[3]
+    if not KNOWN_LOOT_EVENTS[event] then return nil end
+    if not bot or bot == "" then return nil end
+
+    local row = { ts = ts, bot = bot, event = event }
+    if event == "LootMoney" then
+        local copper = tonumber(fields[5]) or 0
+        row.copper = copper
+        row.item = tostring(copper)
+        row.itemId = tonumber(fields[4]) or fields[4]
+    elseif event == "LootRoll" then
+        local _, _, vote, rest = string.find(fields[4] or "", "^([%a]+):(.*)$")
+        vote = vote and string.lower(vote) or ""
+        local _, _, idText, reason = string.find(rest or "", "^(%d+):?(.*)$")
+        row.vote = vote
+        row.itemId = tonumber(idText)
+        row.item = fields[5] or ""
+        row.reason = (reason and reason ~= "") and reason or nil
+    else
+        local id = tonumber(fields[4])
+        row.itemId = id
+        row.item = fields[5] or ""
+        local quality = tonumber(fields[8])
+        if quality and quality >= 0 and quality <= 6 then
+            row.quality = math.floor(quality)
+        end
+    end
+    row.sourceType = (fields[6] and fields[6] ~= "") and fields[6] or "other"
+    row.source = fields[7] or ""
+    return row
+end
+
+function UnBot:ParseLootLogMessage(msg)
+    if not msg or string.sub(msg, 1, 4) ~= "TBM:" then return false end
+
+    local _, _, count, nextCursor = string.find(msg, "^TBM:LOOT_BEGIN|(%d+)|([^|]*)")
+    if count then
+        self.lootReceiving = { expected = tonumber(count), rows = {}, nextCursor = nextCursor or "" }
+        return true
+    end
+
+    if string.sub(msg, 1, 9) == "TBM:LOOT|" then
+        local row = self:ParseLootLine(msg)
+        if self.lootReceiving then
+            if row then table.insert(self.lootReceiving.rows, row) end
+        elseif row then
+            if self.MergeLootRows then self:MergeLootRows({ row }) end
+            if self.RefreshLootLogView then self:RefreshLootLogView() end
+        end
+        return true
+    end
+
+    local _, _, endCursor = string.find(msg, "^TBM:LOOT_END|([^|]*)")
+    if endCursor ~= nil then
+        local batch = self.lootReceiving
+        self.lootReceiving = nil
+        if batch then
+            if endCursor == "expired" then
+                if self.RequestLootLog then self:RequestLootLog(nil) end
+            else
+                if self.MergeLootRows then self:MergeLootRows(batch.rows) end
+                if endCursor ~= "" and self.RequestLootLog then
+                    self:RequestLootLog(endCursor)
+                end
+            end
+            if self.RefreshLootLogView then self:RefreshLootLogView() end
+        end
+        return true
+    end
+
     return false
 end
 
@@ -709,6 +925,11 @@ capture:SetScript("OnEvent", function()
     if event == "CHAT_MSG_WHISPER" or event == "CHAT_MSG_PARTY" then
         if event == "CHAT_MSG_WHISPER" and string.find(arg1, "^TBM:") and type(UnBot.OnTBMSystemMessage) == "function" then
             UnBot:OnTBMSystemMessage(arg1)
+        end
+        if event == "CHAT_MSG_WHISPER" and type(UnBot.ConsumeVaultReply) == "function" then
+            if UnBot:ConsumeVaultReply(arg2, arg1) then
+                return
+            end
         end
         UnBot:ParseStrategyList(arg1)
         if type(UnBot.ParseCombatStrategies) == "function" then
