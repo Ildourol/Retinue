@@ -214,6 +214,25 @@ UnBotExecuteCommand = {
     [205] = "runaway",                          -- Warn & runaway from danger
     [206] = "attackers",                        -- Announce active enemy attackers
     [207] = ".bot downtime",                    -- Downtime errands (own alts)
+    [208] = "reset ai",                         -- Full AI reset (factory defaults)
+    [209] = "reset ai soft",                    -- Soft AI reset (reload config, clear stuck loops)
+    [210] = "reset values",                     -- Reset blackboard memory / values
+    [211] = "reset travel target",              -- Reset travel and quest pathing target
+    [212] = "position reset",                   -- Reset anchor and guard position to follow
+    [213] = "talents reset",                    -- Reset talents at class trainer
+    [214] = "reset instances",                  -- Reset 5-man dungeon instances
+    [215] = "reset raids",                      -- Reset raid lockouts
+    [216] = "list ai",                          -- List saved AI strategy presets
+    [217] = "save ai",                          -- Save named AI strategy preset (dialog)
+    [218] = "load ai",                          -- Load named AI strategy preset (dialog)
+    [219] = "attack my target",                 -- Party bots attack player's target
+    [220] = "attack rti target",                -- Party bots attack active RTI target
+    [221] = "spread distance",                  -- Set spread spacing distance (dialog)
+    [222] = "wait for attack time",             -- Set DPS wait-for-attack delay (dialog)
+    [223] = "tell attackers",                   -- Query active hostile attackers
+    [224] = "tell target",                      -- Query target health and combat status
+    [225] = "clean quest log",                  -- Abandon stale/grey quests from quest log
+    [226] = "buy back",                         -- Buy back last sold items at vendor
 }
 
 -- How the command is delivered:
@@ -261,6 +280,10 @@ UnBotCommandType = {
     [193] = 2, [194] = 2, [195] = 2,
     [196] = 2, [197] = 4, [198] = 1, [199] = 2, [200] = 4, [201] = 4,
     [202] = 4, [203] = 4, [204] = 4, [205] = 4, [206] = 4, [207] = 4,
+    [208] = 4, [209] = 4, [210] = 4, [211] = 4, [212] = 4, [213] = 2,
+    [214] = 4, [215] = 4, [216] = 2, [217] = 2, [218] = 2, [219] = 4,
+    [220] = 4, [221] = 4, [222] = 4, [223] = 2, [224] = 2, [225] = 4,
+    [226] = 2,
 }
 
 -- Which of the command-bar groups a command belongs to.
@@ -283,10 +306,12 @@ UnBotCommandToGroups = {
     [122] = 1, [123] = 1, [124] = 1, [125] = 1, [126] = 1, [127] = 1,
     [156] = 1, [157] = 1, [158] = 1, [159] = 1, [160] = 1, [161] = 1, [162] = 1,
     [174] = 1, [175] = 1, [186] = 1, [187] = 1, [205] = 1,
+    [219] = 1, [220] = 1, [222] = 1,
     -- movement & stances
     [15] = 2, [16] = 2, [47] = 2, [76] = 2, [100] = 2,
     [106] = 2, [107] = 2, [108] = 2, [109] = 2, [110] = 2, [111] = 2,
     [142] = 2, [143] = 2, [144] = 2, [163] = 2, [173] = 2, [188] = 2, [200] = 2,
+    [221] = 2,
     -- support and upkeep
     [18] = 3, [19] = 3, [24] = 3, [55] = 3, [56] = 3, [57] = 3,
     [58] = 3, [59] = 3, [60] = 3, [61] = 3, [80] = 3, [81] = 3,
@@ -298,10 +323,10 @@ UnBotCommandToGroups = {
     [11] = 4, [64] = 4, [65] = 4, [66] = 4, [67] = 4, [68] = 4,
     [93] = 4, [94] = 4, [95] = 4,
     [128] = 4, [129] = 4, [130] = 4, [131] = 4, [132] = 4, [133] = 4, [134] = 4, [135] = 4,
-    [168] = 4, [196] = 4, [197] = 4,
+    [168] = 4, [196] = 4, [197] = 4, [226] = 4,
     -- information and status
     [20] = 5, [21] = 5, [22] = 5, [23] = 5, [62] = 5, [63] = 5,
-    [198] = 5, [206] = 5,
+    [198] = 5, [206] = 5, [223] = 5, [224] = 5,
     -- training and abilities
     [5] = 6, [6] = 6, [7] = 6, [8] = 6, [17] = 6, [69] = 6,
     [96] = 6, [97] = 6, [189] = 6, [190] = 6, [191] = 6, [192] = 6, [199] = 6,
@@ -314,32 +339,34 @@ UnBotCommandToGroups = {
     [52] = 8, [53] = 8, [54] = 8, [75] = 8, [84] = 8, [85] = 8,
     [136] = 8, [137] = 8, [138] = 8, [139] = 8, [140] = 8, [141] = 8,
     [170] = 8, [171] = 8, [172] = 8, [176] = 8, [177] = 8, [182] = 8,
+    [208] = 8, [209] = 8, [210] = 8, [211] = 8, [212] = 8, [213] = 8,
+    [214] = 8, [215] = 8, [216] = 8, [217] = 8, [218] = 8,
     -- formation
     [38] = 9, [39] = 9, [40] = 9, [41] = 9, [42] = 9, [43] = 9,
     [44] = 9, [45] = 9, [46] = 9, [104] = 9, [105] = 9,
     [102] = 0,
     -- group 11: utilities, mail, blacklist & world interaction
     [72] = 11, [88] = 11, [103] = 11, [151] = 11, [152] = 11, [153] = 11, [154] = 11, [155] = 11,
-    [179] = 11, [180] = 11, [181] = 11, [196] = 11,
+    [179] = 11, [180] = 11, [181] = 11, [196] = 11, [225] = 11,
 }
 
 -- Display order inside each group.  Any future command not listed here is
 -- appended using its command ID, so adding an action cannot hide it.
 UnBotCommandOrder = {
-    [1] = { 32, 91, 156, 92, 157, 158, 186, 187, 159, 112, 113, 33, 35, 34, 36, 37,
+    [1] = { 32, 91, 219, 220, 156, 92, 157, 158, 222, 186, 187, 159, 112, 113, 33, 35, 34, 36, 37,
             160, 161, 162, 174, 175, 115, 114, 182, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127,
             70, 25, 31, 26, 28, 27, 29, 30, 205 },
     [2] = { 15, 16, 163, 100, 200,
             47, 76, 142, 143, 144, 173,
-            106, 107, 108, 109, 110, 188, 111 },
+            106, 107, 108, 109, 110, 221, 188, 111 },
     [3] = { 80, 90, 165, 99, 81, 166, 178, 167, 193, 194, 195, 201,
             24, 89, 199,
             145, 146, 147, 148, 149, 150, 207,
             98, 164, 18, 19, 202, 203, 204 },
     [4] = { 64, 168, 93, 66, 94,
-            68, 67, 95, 65, 196, 197,
+            68, 67, 95, 226, 65, 196, 197,
             128, 129, 130, 131, 132, 133, 134, 135 },
-    [5] = { 22, 23,
+    [5] = { 22, 23, 223, 224,
             62, 63,
             20, 21, 198, 206 },
     [6] = { 96, 69,
@@ -350,12 +377,14 @@ UnBotCommandOrder = {
             13, 14,
             101, 71 },
     [8] = { 54, 85, 9, 10, 182,
+            208, 209, 210, 211, 212, 213, 214, 215,
+            216, 217, 218,
             176, 177,
             170, 171, 172,
             136, 137, 138, 139, 140, 141 },
     [9] = { 46, 105, 38, 42, 43, 40, 41, 39, 45, 44, 104 },
     [10] = {},
-    [11] = { 151, 154, 155, 179,
+    [11] = { 151, 154, 155, 179, 225,
              180, 181,
              152, 153,
              103, 72, 88 },
@@ -627,6 +656,25 @@ UnBotCommandIcon = {
     [205] = I.."Spell_Shadow_DeathScream",
     [206] = I.."Ability_DualWield",
     [207] = I.."INV_Misc_Toy_07",
+    [208] = I.."Spell_Holy_Renew",
+    [209] = I.."Spell_Holy_DispelMagic",
+    [210] = I.."Spell_Shadow_MindBomb",
+    [211] = I.."Ability_Tracking",
+    [212] = I.."Ability_Defend",
+    [213] = I.."Spell_Nature_Purge",
+    [214] = I.."Spell_Holy_PrayerOfHealing",
+    [215] = I.."Spell_Holy_GreaterBlessingofKings",
+    [216] = I.."INV_Misc_Book_06",
+    [217] = I.."INV_Scroll_11",
+    [218] = I.."INV_Misc_Note_02",
+    [219] = I.."Ability_DualWield",
+    [220] = I.."Ability_Hunter_SniperShot",
+    [221] = I.."Spell_Nature_Earthquake",
+    [222] = I.."INV_Misc_PocketWatch_01",
+    [223] = I.."Ability_Warrior_BattleShout",
+    [224] = I.."Ability_Search",
+    [225] = I.."INV_Misc_Note_03",
+    [226] = I.."INV_Misc_Coin_02",
 }
 
 -- Original 3.3.5 icon indices, kept for reference only.

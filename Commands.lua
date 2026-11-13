@@ -785,6 +785,349 @@ UnBot:RegisterHandler(207, function()
 end)
 
 --=========================================================================--
+--  Modal Input Dialogs (Save AI, Load AI, Spread Distance, Wait Attack Time)
+--=========================================================================--
+
+StaticPopupDialogs["UNBOT_SAVE_AI"] = {
+    text = "Enter AI strategy preset name to save:",
+    button1 = "Save",
+    button2 = "Cancel",
+    hasEditBox = 1,
+    maxLetters = 24,
+    OnShow = function()
+        local editBox = getglobal(this:GetName().."EditBox")
+        if editBox then
+            editBox:SetText("")
+            editBox:SetFocus()
+        end
+    end,
+    OnAccept = function()
+        local editBox = getglobal(this:GetParent():GetName().."EditBox")
+        local name = editBox and editBox:GetText()
+        if name and name ~= "" then
+            local target = UnitName("target")
+            local checkValid = IsValidCharacterName or (UnBot and UnBot.IsValidCharacterName)
+            if target and (not checkValid or checkValid(target)) and (UnitInParty("target") or UnitInRaid("target")) and not UnitIsUnit("target", "player") then
+                SendChatMessage("save ai " .. name, "WHISPER", nil, target)
+                UnBot:Message("Saved AI preset '" .. name .. "' for " .. target)
+            else
+                SendChatMessage("save ai " .. name, "PARTY")
+                UnBot:Message("Saved AI preset '" .. name .. "' for party bots")
+            end
+        end
+    end,
+    EditBoxOnEnterPressed = function()
+        StaticPopupDialogs["UNBOT_SAVE_AI"].OnAccept()
+        this:GetParent():Hide()
+    end,
+    EditBoxOnEscapePressed = function()
+        this:GetParent():Hide()
+    end,
+    timeout = 0,
+    whileDead = 1,
+    hideOnEscape = 1,
+}
+
+StaticPopupDialogs["UNBOT_LOAD_AI"] = {
+    text = "Enter AI strategy preset name to load:",
+    button1 = "Load",
+    button2 = "Cancel",
+    hasEditBox = 1,
+    maxLetters = 24,
+    OnShow = function()
+        local editBox = getglobal(this:GetName().."EditBox")
+        if editBox then
+            editBox:SetText("")
+            editBox:SetFocus()
+        end
+    end,
+    OnAccept = function()
+        local editBox = getglobal(this:GetParent():GetName().."EditBox")
+        local name = editBox and editBox:GetText()
+        if name and name ~= "" then
+            local target = UnitName("target")
+            local checkValid = IsValidCharacterName or (UnBot and UnBot.IsValidCharacterName)
+            if target and (not checkValid or checkValid(target)) and (UnitInParty("target") or UnitInRaid("target")) and not UnitIsUnit("target", "player") then
+                SendChatMessage("load ai " .. name, "WHISPER", nil, target)
+                UnBot:Message("Loaded AI preset '" .. name .. "' on " .. target)
+            else
+                SendChatMessage("load ai " .. name, "PARTY")
+                UnBot:Message("Loaded AI preset '" .. name .. "' on party bots")
+            end
+        end
+    end,
+    EditBoxOnEnterPressed = function()
+        StaticPopupDialogs["UNBOT_LOAD_AI"].OnAccept()
+        this:GetParent():Hide()
+    end,
+    EditBoxOnEscapePressed = function()
+        this:GetParent():Hide()
+    end,
+    timeout = 0,
+    whileDead = 1,
+    hideOnEscape = 1,
+}
+
+StaticPopupDialogs["UNBOT_SPREAD_DISTANCE"] = {
+    text = "Enter combat spread distance in yards (default 10):",
+    button1 = "Set",
+    button2 = "Cancel",
+    hasEditBox = 1,
+    maxLetters = 4,
+    OnShow = function()
+        local editBox = getglobal(this:GetName().."EditBox")
+        if editBox then
+            editBox:SetText("10")
+            editBox:HighlightText()
+            editBox:SetFocus()
+        end
+    end,
+    OnAccept = function()
+        local editBox = getglobal(this:GetParent():GetName().."EditBox")
+        local val = editBox and editBox:GetText()
+        if val and tonumber(val) then
+            SendChatMessage("spread distance " .. val, "PARTY")
+            UnBot:Message("Set party combat spread distance to " .. val .. " yards")
+        end
+    end,
+    EditBoxOnEnterPressed = function()
+        StaticPopupDialogs["UNBOT_SPREAD_DISTANCE"].OnAccept()
+        this:GetParent():Hide()
+    end,
+    EditBoxOnEscapePressed = function()
+        this:GetParent():Hide()
+    end,
+    timeout = 0,
+    whileDead = 1,
+    hideOnEscape = 1,
+}
+
+StaticPopupDialogs["UNBOT_WAIT_ATTACK_TIME"] = {
+    text = "Enter wait for attack delay in seconds (default 3):",
+    button1 = "Set",
+    button2 = "Cancel",
+    hasEditBox = 1,
+    maxLetters = 4,
+    OnShow = function()
+        local editBox = getglobal(this:GetName().."EditBox")
+        if editBox then
+            editBox:SetText("3")
+            editBox:HighlightText()
+            editBox:SetFocus()
+        end
+    end,
+    OnAccept = function()
+        local editBox = getglobal(this:GetParent():GetName().."EditBox")
+        local val = editBox and editBox:GetText()
+        if val and tonumber(val) then
+            SendChatMessage("wait for attack time " .. val, "PARTY")
+            UnBot:Message("Set DPS wait-for-attack delay to " .. val .. " seconds")
+        end
+    end,
+    EditBoxOnEnterPressed = function()
+        StaticPopupDialogs["UNBOT_WAIT_ATTACK_TIME"].OnAccept()
+        this:GetParent():Hide()
+    end,
+    EditBoxOnEscapePressed = function()
+        this:GetParent():Hide()
+    end,
+    timeout = 0,
+    whileDead = 1,
+    hideOnEscape = 1,
+}
+
+--=========================================================================--
+--  Reset, Preset, Tactical & Upkeep Handlers (208 - 226)
+--=========================================================================--
+
+-- [208] Full AI Reset (strategies + DB store)
+UnBot:RegisterHandler(208, function()
+    local target = UnitName("target")
+    local checkValid = IsValidCharacterName or (UnBot and UnBot.IsValidCharacterName)
+    if target and (not checkValid or checkValid(target)) and (UnitInParty("target") or UnitInRaid("target")) and not UnitIsUnit("target", "player") then
+        SendChatMessage("reset ai", "WHISPER", nil, target)
+        UnBot:Message("Full AI Reset ordered for " .. target)
+    else
+        SendChatMessage("reset ai", "PARTY")
+        UnBot:Message("Full AI Reset ordered for party bots")
+    end
+end)
+
+-- [209] Soft AI Reset (clear transient combat state, reload config)
+UnBot:RegisterHandler(209, function()
+    local target = UnitName("target")
+    local checkValid = IsValidCharacterName or (UnBot and UnBot.IsValidCharacterName)
+    if target and (not checkValid or checkValid(target)) and (UnitInParty("target") or UnitInRaid("target")) and not UnitIsUnit("target", "player") then
+        SendChatMessage("reset ai soft", "WHISPER", nil, target)
+        UnBot:Message("Soft AI Reset ordered for " .. target)
+    else
+        SendChatMessage("reset ai soft", "PARTY")
+        UnBot:Message("Soft AI Reset ordered for party bots")
+    end
+end)
+
+-- [210] Reset AI Blackboard Values
+UnBot:RegisterHandler(210, function()
+    local target = UnitName("target")
+    local checkValid = IsValidCharacterName or (UnBot and UnBot.IsValidCharacterName)
+    if target and (not checkValid or checkValid(target)) and (UnitInParty("target") or UnitInRaid("target")) and not UnitIsUnit("target", "player") then
+        SendChatMessage("reset values", "WHISPER", nil, target)
+        UnBot:Message("Blackboard memory values reset for " .. target)
+    else
+        SendChatMessage("reset values", "PARTY")
+        UnBot:Message("Blackboard memory values reset for party bots")
+    end
+end)
+
+-- [211] Reset Travel Target
+UnBot:RegisterHandler(211, function()
+    local target = UnitName("target")
+    local checkValid = IsValidCharacterName or (UnBot and UnBot.IsValidCharacterName)
+    if target and (not checkValid or checkValid(target)) and (UnitInParty("target") or UnitInRaid("target")) and not UnitIsUnit("target", "player") then
+        SendChatMessage("reset travel target", "WHISPER", nil, target)
+        UnBot:Message("Travel pathing target reset for " .. target)
+    else
+        SendChatMessage("reset travel target", "PARTY")
+        UnBot:Message("Travel pathing target reset for party bots")
+    end
+end)
+
+-- [212] Reset Anchor Position to Follow
+UnBot:RegisterHandler(212, function()
+    local target = UnitName("target")
+    local checkValid = IsValidCharacterName or (UnBot and UnBot.IsValidCharacterName)
+    if target and (not checkValid or checkValid(target)) and (UnitInParty("target") or UnitInRaid("target")) and not UnitIsUnit("target", "player") then
+        SendChatMessage("position reset", "WHISPER", nil, target)
+        UnBot:Message("Anchor and guard position reset to follow for " .. target)
+    else
+        SendChatMessage("position reset", "PARTY")
+        UnBot:Message("Anchor and guard positions reset to follow for party bots")
+    end
+end)
+
+-- [213] Reset Talents at Trainer
+UnBot:RegisterHandler(213, function()
+    local target = UnitName("target")
+    local checkValid = IsValidCharacterName or (UnBot and UnBot.IsValidCharacterName)
+    if target and (not checkValid or checkValid(target)) and (UnitInParty("target") or UnitInRaid("target")) and not UnitIsUnit("target", "player") then
+        SendChatMessage("talents reset", "WHISPER", nil, target)
+        UnBot:Message("Reset talents at class trainer ordered for " .. target)
+    else
+        SendChatMessage("talents reset", "PARTY")
+        UnBot:Message("Reset talents at class trainer ordered for party bots")
+    end
+end)
+
+-- [214] Reset 5-man Dungeons
+UnBot:RegisterHandler(214, function()
+    SendChatMessage("reset instances", "PARTY")
+    UnBot:Message("Ordered party bot leader to reset 5-man instances")
+end)
+
+-- [215] Reset Raid Lockouts
+UnBot:RegisterHandler(215, function()
+    SendChatMessage("reset raids", "PARTY")
+    UnBot:Message("Ordered raid bot leader to reset raid lockouts")
+end)
+
+-- [216] List Saved AI Presets
+UnBot:RegisterHandler(216, function()
+    local target = UnitName("target")
+    local checkValid = IsValidCharacterName or (UnBot and UnBot.IsValidCharacterName)
+    if target and (not checkValid or checkValid(target)) and (UnitInParty("target") or UnitInRaid("target")) and not UnitIsUnit("target", "player") then
+        SendChatMessage("list ai", "WHISPER", nil, target)
+        UnBot:Message("Queried saved AI presets for " .. target)
+    else
+        SendChatMessage("list ai", "PARTY")
+        UnBot:Message("Queried saved AI presets for party bots")
+    end
+end)
+
+-- [217] Save Named AI Preset
+UnBot:RegisterHandler(217, function()
+    StaticPopup_Show("UNBOT_SAVE_AI")
+end)
+
+-- [218] Load Named AI Preset
+UnBot:RegisterHandler(218, function()
+    StaticPopup_Show("UNBOT_LOAD_AI")
+end)
+
+-- [219] Attack Player's Target
+UnBot:RegisterHandler(219, function()
+    SendChatMessage("attack my target", "PARTY")
+    UnBot:Message("Ordered party bots to attack player's target")
+end)
+
+-- [220] Attack RTI Marked Target
+UnBot:RegisterHandler(220, function()
+    SendChatMessage("attack rti target", "PARTY")
+    UnBot:Message("Ordered party bots to attack active RTI mark target")
+end)
+
+-- [221] Set Combat Spread Distance
+UnBot:RegisterHandler(221, function()
+    StaticPopup_Show("UNBOT_SPREAD_DISTANCE")
+end)
+
+-- [222] Set DPS Wait-for-Attack Delay
+UnBot:RegisterHandler(222, function()
+    StaticPopup_Show("UNBOT_WAIT_ATTACK_TIME")
+end)
+
+-- [223] Report Hostile Attackers
+UnBot:RegisterHandler(223, function()
+    local target = UnitName("target")
+    local checkValid = IsValidCharacterName or (UnBot and UnBot.IsValidCharacterName)
+    if target and (not checkValid or checkValid(target)) and (UnitInParty("target") or UnitInRaid("target")) and not UnitIsUnit("target", "player") then
+        SendChatMessage("tell attackers", "WHISPER", nil, target)
+        UnBot:Message("Queried active attackers for " .. target)
+    else
+        SendChatMessage("tell attackers", "PARTY")
+        UnBot:Message("Queried active attackers for party bots")
+    end
+end)
+
+-- [224] Report Target Status
+UnBot:RegisterHandler(224, function()
+    local target = UnitName("target")
+    local checkValid = IsValidCharacterName or (UnBot and UnBot.IsValidCharacterName)
+    if target and (not checkValid or checkValid(target)) and (UnitInParty("target") or UnitInRaid("target")) and not UnitIsUnit("target", "player") then
+        SendChatMessage("tell target", "WHISPER", nil, target)
+        UnBot:Message("Queried target status from " .. target)
+    else
+        SendChatMessage("tell target", "PARTY")
+        UnBot:Message("Queried target status from party bots")
+    end
+end)
+
+-- [225] Clean Stale Quests from Quest Log
+UnBot:RegisterHandler(225, function()
+    local target = UnitName("target")
+    local checkValid = IsValidCharacterName or (UnBot and UnBot.IsValidCharacterName)
+    if target and (not checkValid or checkValid(target)) and (UnitInParty("target") or UnitInRaid("target")) and not UnitIsUnit("target", "player") then
+        SendChatMessage("clean quest log", "WHISPER", nil, target)
+        UnBot:Message("Cleaned stale quests from quest log for " .. target)
+    else
+        SendChatMessage("clean quest log", "PARTY")
+        UnBot:Message("Cleaned stale quests from quest log for party bots")
+    end
+end)
+
+-- [226] Buy Back Last Sold Items at Vendor
+UnBot:RegisterHandler(226, function()
+    local target = UnitName("target")
+    local checkValid = IsValidCharacterName or (UnBot and UnBot.IsValidCharacterName)
+    if target and (not checkValid or checkValid(target)) and (UnitInParty("target") or UnitInRaid("target")) and not UnitIsUnit("target", "player") then
+        SendChatMessage("buy back", "WHISPER", nil, target)
+        UnBot:Message("Ordered " .. target .. " to buy back last sold items at vendor")
+    else
+        SendChatMessage("buy back", "PARTY")
+        UnBot:Message("Ordered party bots to buy back last sold items at vendor")
+    end
+end)
+
+--=========================================================================--
 --  Parity Action Helpers (Direct Cast, Items, Bank, Mail)
 --=========================================================================--
 

@@ -4,7 +4,7 @@
 > **Target Environment**: Turtle WoW (Client 1.12.1 / Engine 1.18.1.7272)  
 > **Companion Engine**: `TortoiseBots` (PlayerBot Subsystem)  
 > **Encoding**: UTF-8 without BOM  
-> **Total Commands Documented**: 182 tactical, movement, inventory, strategy, and management actions.
+> **Total Commands Documented**: 201 tactical, movement, inventory, strategy, and management actions (IDs 0-226).
 
 ---
 
@@ -46,10 +46,13 @@ All inbound status reports and machine-readable protocol messages prefixed with 
 |:---|:---|:---|:---|:---|
 | **32** | Attack target | Party Target (`/party`) | `.bot action attack` | Commands party bots to attack the player's current hostile target (evade-safe, 150yd range). |
 | **91** | Attack target | Whole Party (`/party`) | `.bot action attack` | Orders all party bots to switch targets and attack the player's current target. |
+| **219** | Attack my target | Whole Party (`/party`) | `attack my target` | Orders all party bots to immediately acquire and attack the player's current hostile target. |
+| **220** | Attack RTI mark | Whole Party (`/party`) | `attack rti target` | Orders all party bots to immediately acquire and attack the target marked by the active RTI icon. |
 | **156** | Interrupt cast | Party Target (`/party`) | `.bot action interrupt` | Orders party bots to prioritize and immediately cast interrupts (Kick, Pummel, Counterspell, Earth Shock). |
 | **92** | Tactical pull | Whole Party (`/party`) | `.bot action pull 10 ranged` | Initiates a ranged tank pull (10yd pull): tank engages while party holds position. |
 | **157** | Tactical pullback | Party Target (`/party`) | `.bot action pullback 5 ranged` | Orders the tank to pull from range and drag the mob back to player anchor coordinates while party holds. |
 | **158** | End pull | Whole Party (`/party`) | `end pull` | Immediately aborts an active tank pull without waiting for timeout. |
+| **222** | Wait attack time | Whole Party (`/party`) | `wait for attack time <sec>` | Interactive dialog to configure DPS attack delay on pull (allows tank time to build solid threat). |
 | **159** | Focus Skull | Whole Party (`/party`) | `.bot action focus skull` | Sets Skull mark on target and commands all DPS bots to focus burn. |
 | **112** | Attack RTI | Whole Party (`/party`) | `attack rti` | Commands party bots to attack the target marked with the active RTI combat icon. |
 | **113** | Pull RTI | Whole Party (`/party`) | `pull rti` | Orders tank to pull the mob marked with the active RTI combat icon. |
@@ -115,14 +118,15 @@ All inbound status reports and machine-readable protocol messages prefixed with 
 | **144** | Free movement | Whole Party (`/party`) | `free` | Releases bots from guard posts and allows autonomous nearby wandering. |
 | **173** | Wander mode | Whole Party (`/party`) | `wander` | Toggles free autonomous roaming and exploration when out of combat. |
 
-#### Section: Combat Stances
+#### Section: Combat Stances & Spacing
 | ID | Label | Scope | Native Command / Chat | Tactical Action & Server Behavior |
 |:---|:---|:---|:---|:---|
 | **106** | Stance: near | Whole Party (`/party`) | `stance near` | Sets combat stance to Near (bots stay close to target during combat). |
 | **107** | Stance: tank | Whole Party (`/party`) | `stance tank` | Sets combat stance to Tank (tank faces boss away from raid group). |
 | **108** | Stance: turnback | Whole Party (`/party`) | `stance turnback` | Sets combat stance to Turnback (positions target facing away from casters). |
 | **109** | Stance: behind | Whole Party (`/party`) | `stance behind` | Sets combat stance to Behind (melee bots position behind target to bypass parry/block). |
-| **110** | Combat spacing | Whole Party (`/party`) | `.bot behavior party spread on` | Enables party combat spacing (bots maintain 10-yard spread to avoid AoE splash). |
+| **110** | Combat spacing | Whole Party (`/party`) | `.bot behavior party spread on` | Enables party combat spacing (bots maintain spread to avoid AoE splash). |
+| **221** | Spread distance | Whole Party (`/party`) | `spread distance <yards>` | Interactive dialog to set custom combat spacing distance in yards (default 10yd). |
 | **111** | Ping stance | Whole Party (`/party`) | `stance show` | Pings current combat stance positions on the ground. |
 
 ### Group 3: Support & Upkeep
@@ -176,12 +180,13 @@ All inbound status reports and machine-readable protocol messages prefixed with 
 | **66** | Equip item | Selected Bot (`/whisper`) | `e ` | Opens the remote Equip Item window to inspect and equip gear. |
 | **94** | Repair gear | Whole Party (`/party`) | `.bot action repair` | Orders bots to approach the nearest vendor and repair all damaged equipment. |
 
-#### Section: Item actions
+#### Section: Item & Vendor actions
 | ID | Label | Scope | Native Command / Chat | Tactical Action & Server Behavior |
 |:---|:---|:---|:---|:---|
 | **68** | Use item | Selected Bot (`/whisper`) | `u ` | Opens the remote Use Item window to command bots to consume or activate items. |
 | **67** | Sell item | Selected Bot (`/whisper`) | `s ` | Opens the remote Sell Item window to select vendor sales. |
 | **95** | Sell junk | Whole Party (`/party`) | `.bot action sell` | Orders bots to approach the nearest vendor and sell all grey junk items. |
+| **226** | Vendor buy back | Selected / Party | `buy back` | Commands targeted or party bots to buy back their most recently sold items at a vendor. |
 | **65** | Destroy item | Selected Bot (`/whisper`) | `destroy ` | Opens the remote Destroy Item window to discard junk from bot bags. |
 
 #### Section: Loot Filters
@@ -199,11 +204,13 @@ All inbound status reports and machine-readable protocol messages prefixed with 
 ### Group 5: Info & Status
 *Diagnostic status reporting, active combat strategies review, and quest log inspection.*
 
-#### Section: Status
+#### Section: Status & Reports
 | ID | Label | Scope | Native Command / Chat | Tactical Action & Server Behavior |
 |:---|:---|:---|:---|:---|
 | **22** | Party status | Whole Party (`/party`) | `stats` | Prints live health, mana, role, and current state metrics for all party bots. |
 | **23** | Selected status | Selected Bot (`/whisper`) | `stats` | Prints live health, mana, role, and current state metrics for the selected bot. |
+| **223** | Report attackers | Selected / Party | `tell attackers` | Queries targeted or party bots for all active hostile mobs currently aggroed on them. |
+| **224** | Report target | Selected / Party | `tell target` | Queries targeted or party bots for their current target's health percentage and status. |
 
 #### Section: Combat strategies
 | ID | Label | Scope | Native Command / Chat | Tactical Action & Server Behavior |
@@ -261,7 +268,7 @@ All inbound status reports and machine-readable protocol messages prefixed with 
 ### Group 8: Strategy & Tactics
 *Full strategy toggle editor, state reset, raid positioning rules, AoE fear controls, and save-mana levels.*
 
-#### Section: Editor & Reset
+#### Section: Editor & General Resets
 | ID | Label | Scope | Native Command / Chat | Tactical Action & Server Behavior |
 |:---|:---|:---|:---|:---|
 | **54** | Strategy | Selected Bot (`/whisper`) | `strategy` | Opens the interactive Strategy Editor window displaying all available combat toggles for the bot. |
@@ -269,6 +276,25 @@ All inbound status reports and machine-readable protocol messages prefixed with 
 | **9** | Reset party strats | Whole Party (`/party`) | `.bot strategy reset` | Resets all active strategy toggles to default archetype baselines for all party bots. |
 | **10** | Reset selected strats | Selected Bot (`/whisper`) | `.bot strategy reset` | Resets all active strategy toggles to default archetype baselines for the targeted bot. |
 | **182** | Soft state reset | Selected Bot (`/whisper`) | `reset` | Performs a soft reset on the bot AI behavior tree without dropping combat or logging out. |
+
+#### Section: AI Engine Resets
+| ID | Label | Scope | Native Command / Chat | Tactical Action & Server Behavior |
+|:---|:---|:---|:---|:---|
+| **208** | Full AI Reset | Selected / Party | `reset ai` | Completely wipes active strategies and stored values from `ai_playerbot_db_store`, restoring factory defaults. |
+| **209** | Soft AI Reset | Selected / Party | `reset ai soft` | Reloads saved strategies and values from the database, clearing stuck combat loops. |
+| **210** | Reset AI Memory | Selected / Party | `reset values` | Wipes transient memory values (threat tables, target blacklists, pathing caches). |
+| **211** | Reset Travel Target | Selected / Party | `reset travel target` | Clears active travel destinations, quest travel paths, and navigation waypoints. |
+| **212** | Reset Anchor Pos | Selected / Party | `position reset` | Resets custom stay or guard anchor points and restores default follow formation. |
+| **213** | Reset Talents | Selected / Party | `talents reset` | Resets the bot's talent tree when interacting with a class trainer. |
+| **214** | Reset Instances | Whole Party (`/party`) | `reset instances` | Orders a bot party leader to reset 5-man dungeon instances. |
+| **215** | Reset Raids | Whole Party (`/party`) | `reset raids` | Orders a bot raid leader to reset raid lockouts. |
+
+#### Section: AI Strategy Presets
+| ID | Label | Scope | Native Command / Chat | Tactical Action & Server Behavior |
+|:---|:---|:---|:---|:---|
+| **216** | List AI Presets | Selected / Party | `list ai` | Queries and prints all saved AI strategy preset names. |
+| **217** | Save AI Preset | Selected / Party | `save ai <name>` | Interactive dialog to save the bot's current strategy configuration under a custom named preset. |
+| **218** | Load AI Preset | Selected / Party | `load ai <name>` | Interactive dialog to load and activate a previously saved custom named AI strategy preset. |
 
 #### Section: Combat Behaviors
 | ID | Label | Scope | Native Command / Chat | Tactical Action & Server Behavior |
@@ -340,6 +366,7 @@ The **Player Roster** is an interactive full-screen management interface rather 
 | **154** | Accept all quests | Whole Party (`/party`) | `accept *` | Accepts all shared party quests from all group members. |
 | **155** | Quest rewards | Whole Party (`/party`) | `r ?` | Queries available quest reward choices for the selected bot via `r ?`. |
 | **179** | Share quests | Whole Party (`/party`) | `share` | Shares all eligible quests from the bot's log with group members. |
+| **225** | Clean quest log | Selected / Party | `clean quest log` | Orders targeted or party bots to scan their quest log and abandon completed/stale/grey low-level quests. |
 
 #### Section: Travel & Life
 | ID | Label | Scope | Native Command / Chat | Tactical Action & Server Behavior |

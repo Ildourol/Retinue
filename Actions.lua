@@ -181,20 +181,30 @@ local ACTION_LABELS = {
     [203] = "Self resurrect",       [204] = "Corpse run",
     [205] = "Warn & runaway",       [206] = "Query attackers",
     [207] = "Downtime errands",
+    [208] = "Full AI Reset",        [209] = "Soft AI Reset",
+    [210] = "Reset AI Memory",      [211] = "Reset Travel Target",
+    [212] = "Reset Anchor Pos",     [213] = "Reset Talents",
+    [214] = "Reset Instances",      [215] = "Reset Raids",
+    [216] = "List AI Presets",      [217] = "Save AI Preset",
+    [218] = "Load AI Preset",       [219] = "Attack my target",
+    [220] = "Attack RTI mark",      [221] = "Spread distance",
+    [222] = "Wait attack time",     [223] = "Report attackers",
+    [224] = "Report target",        [225] = "Clean quest log",
+    [226] = "Vendor buy back",
 }
 
 -- Counts follow UnBotCommandOrder. Each family starts on a fresh grid row.
 local ACTION_SECTIONS = {
-    [1]  = { {"Attack & Pull", 16}, {"Crowd Control & Tactics", 20}, {"Stop & Flee", 9} },
-    [2]  = { {"Following & Anchor", 5}, {"Position & Guard", 6}, {"Combat Stances", 7} },
+    [1]  = { {"Attack & Pull", 19}, {"Crowd Control & Tactics", 20}, {"Stop & Flee", 9} },
+    [2]  = { {"Following & Anchor", 5}, {"Position & Guard", 6}, {"Combat Stances & Spacing", 8} },
     [3]  = { {"Preparation & Buffs", 12}, {"Activities", 3}, {"Autonomous RPG & Downtime", 7}, {"Death & Res", 7} },
-    [4]  = { {"Bags & Trade", 5}, {"Item actions", 6}, {"Loot Filters", 8} },
-    [5]  = { {"Status", 2}, {"Combat strategies", 2}, {"Quests & Logs", 4} },
+    [4]  = { {"Bags & Trade", 5}, {"Item & Vendor actions", 7}, {"Loot Filters", 8} },
+    [5]  = { {"Status & Reports", 4}, {"Combat strategies", 2}, {"Quests & Logs", 4} },
     [6]  = { {"View", 2}, {"Training", 3}, {"Pet Stance & Control", 4} },
     [7]  = { {"Selected bot", 4}, {"Party Roster", 3}, {"Summoning & Leadership", 4} },
-    [8]  = { {"Editor & Reset", 5}, {"Combat Behaviors", 2}, {"Raid Tactics", 3}, {"Save Mana Level", 6} },
+    [8]  = { {"Editor & General Resets", 5}, {"AI Engine Resets", 8}, {"AI Strategy Presets", 3}, {"Combat Behaviors", 2}, {"Raid Tactics", 3}, {"Save Mana Level", 6} },
     [9]  = { {"Current formation", 2}, {"Set formation", 9} },
-    [11] = { {"Mail & Quests", 4}, {"Travel & Life", 2}, {"NPC & Spells", 2}, {"System & Objects", 3} },
+    [11] = { {"Mail & Quests", 5}, {"Travel & Life", 2}, {"NPC & Spells", 2}, {"System & Objects", 3} },
 }
 
 function UnBot:GetActionGroupTitle(groupIndex)
