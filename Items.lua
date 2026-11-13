@@ -273,15 +273,31 @@ function UnBot:ParseBotInspectorMessage(msg)
             local count = tonumber(parts[4]) or 1
             local flags = parts[5] or "-"
             if bag and slot and id and id > 0 then
-                table.insert(self.invReceiving.items, {
-                    bag = bag,
-                    slot = slot,
-                    id = id,
-                    count = count,
-                    equippable = string.find(flags, "e", 1, true) ~= nil,
-                    upgrade = string.find(flags, "u", 1, true) ~= nil,
-                    noTrade = string.find(flags, "b", 1, true) ~= nil,
-                })
+                local exists = false
+                local itemsList = self.invReceiving.items
+                for i = 1, table.getn(itemsList) do
+                    local entry = itemsList[i]
+                    if entry.bag == bag and entry.slot == slot then
+                        entry.id = id
+                        entry.count = count
+                        entry.equippable = string.find(flags, "e", 1, true) ~= nil
+                        entry.upgrade = string.find(flags, "u", 1, true) ~= nil
+                        entry.noTrade = string.find(flags, "b", 1, true) ~= nil
+                        exists = true
+                        break
+                    end
+                end
+                if not exists then
+                    table.insert(itemsList, {
+                        bag = bag,
+                        slot = slot,
+                        id = id,
+                        count = count,
+                        equippable = string.find(flags, "e", 1, true) ~= nil,
+                        upgrade = string.find(flags, "u", 1, true) ~= nil,
+                        noTrade = string.find(flags, "b", 1, true) ~= nil,
+                    })
+                end
                 requestItem(id)
             end
         end
@@ -382,19 +398,9 @@ function UnBot:InitItemEvents()
     if self.itemEventsFrame then return end
     local f = CreateFrame("Frame", "UnBotItemEventsFrame")
     f:RegisterEvent("CHAT_MSG_WHISPER")
-    f:RegisterEvent("CHAT_MSG_SYSTEM")
-    f:RegisterEvent("CHAT_MSG_ADDON")
     f:RegisterEvent("GET_ITEM_INFO_RECEIVED")
     f:SetScript("OnEvent", function()
-        if event == "CHAT_MSG_ADDON" then
-            if arg1 == "TBM" and arg2 then
-                UnBot:ParseBotInspectorMessage(arg2)
-            end
-        elseif event == "CHAT_MSG_SYSTEM" and arg1 then
-            if string.find(arg1, "^TBM:") then
-                UnBot:ParseBotInspectorMessage(arg1)
-            end
-        elseif event == "CHAT_MSG_WHISPER" then
+        if event == "CHAT_MSG_WHISPER" then
             UnBot:ReceiveItemWhisper(arg1, arg2)
         elseif event == "GET_ITEM_INFO_RECEIVED" then
             if UnBotItemFrame and UnBotItemFrame:IsShown() then

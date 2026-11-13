@@ -743,140 +743,6 @@ function UnBot:RequestAltSummary()
     self:Message("Requesting account alt summary (.bot alts)...")
 end
 
---=========================================================================--
---  Bot Loot History Model
---=========================================================================--
-
-local QUALITY_HEX = {
-    [0] = "|cff9d9d9d", -- Poor
-    [1] = "|cffffffff", -- Common
-    [2] = "|cff1eff00", -- Uncommon
-    [3] = "|cff0070dd", -- Rare
-    [4] = "|cffa335ee", -- Epic
-    [5] = "|cffff8000", -- Legendary
-    [6] = "|cffe6cc80", -- Artifact
-}
-
-local QUALITY_NAMES = {
-    [-1] = "Any Qual",
-    [0]  = "Poor",
-    [1]  = "Common",
-    [2]  = "Uncommon",
-    [3]  = "Rare",
-    [4]  = "Epic",
-    [5]  = "Legendary",
-    [6]  = "Artifact",
-}
-
-local VOTE_LABEL = { need = "Need", greed = "Greed", disenchant = "Disenchant", pass = "Pass" }
-local VOTE_COLOR = { need = "|cff00ff00", greed = "|cffffd200", disenchant = "|cffa335ee", pass = "|cff9d9d9d" }
-
-function UnBot:GetLootQualityHex(q)
-    return (q and QUALITY_HEX[q]) or "|cffffffff"
-end
-
-function UnBot:GetLootQualityName(q)
-    return (q and QUALITY_NAMES[q]) or "Any Qual"
-end
-
-function UnBot:FormatCopper(copper)
-    copper = tonumber(copper) or 0
-    local g = math.floor(copper / 10000)
-    local s = math.floor(math.mod(copper, 10000) / 100)
-    local c = math.mod(copper, 100)
-    local text = ""
-    if g > 0 then text = text .. "|cffffd700" .. g .. "g|r " end
-    if g > 0 or s > 0 then text = text .. "|cffc7c7cf" .. s .. "s|r " end
-    return text .. "|cffeda55f" .. c .. "c|r"
-end
-
-function UnBot:GetLootHistory()
-    if not self.config then return self.lootHistory or {} end
-    if type(self.config.lootHistory) ~= "table" then
-        self.config.lootHistory = {}
-    end
-    return self.config.lootHistory
-end
-
-function UnBot:ClearLootLog()
-    if self.config then
-        self.config.lootHistory = {}
-    end
-    self.lootHistory = {}
-    self.lootOffset = 0
-    if self.RefreshLootLogView then self:RefreshLootLogView() end
-end
-
-local function lootRowKey(row)
-    return (row.ts or "") .. "|" .. (row.bot or "") .. "|" .. (row.event or "")
-        .. "|" .. tostring(row.itemId or "") .. "|" .. (row.item or "")
-end
-
-function UnBot:MergeLootRows(newRows)
-    local history = self:GetLootHistory()
-    local seen = {}
-    for i = 1, table.getn(history) do
-        seen[lootRowKey(history[i])] = true
-    end
-    local added = 0
-    for i = 1, table.getn(newRows) do
-        local r = newRows[i]
-        local k = lootRowKey(r)
-        if not seen[k] then
-            seen[k] = true
-            table.insert(history, 1, r)
-            added = added + 1
-        end
-    end
-    while table.getn(history) > 2000 do
-        table.remove(history)
-    end
-    return added
-end
-
-function UnBot:RequestLootLog(cursor)
-    if cursor and cursor ~= "" then
-        self:SendBotCommand("lootlog " .. cursor)
-    else
-        self:SendBotCommand("lootlog")
-    end
-end
-
-function UnBot:GetFilteredLoot()
-    local history = self:GetLootHistory()
-    local botFilter = self.lootBotFilter and string.lower(string.gsub(string.gsub(self.lootBotFilter, "^%s+", ""), "%s+$", "")) or ""
-    local itemFilter = self.lootItemFilter and string.lower(string.gsub(string.gsub(self.lootItemFilter, "^%s+", ""), "%s+$", "")) or ""
-    local qualityFilter = self.lootQualityFilter or -1
-    local typeFilter = self.lootTypeFilter or "all"
-
-    local out = {}
-    for i = 1, table.getn(history) do
-        local r = history[i]
-        local match = true
-        if botFilter ~= "" and not string.find(string.lower(r.bot or ""), botFilter, 1, true) then
-            match = false
-        end
-        if match and itemFilter ~= "" and not string.find(string.lower(r.item or ""), itemFilter, 1, true) then
-            match = false
-        end
-        if match and qualityFilter >= 0 and (r.quality == nil or r.quality < qualityFilter) then
-            match = false
-        end
-        if match and typeFilter ~= "all" then
-            if typeFilter == "items" and (r.event ~= "StoreLootAction") then
-                match = false
-            elseif typeFilter == "rolls" and (r.event ~= "LootRoll") then
-                match = false
-            elseif typeFilter == "money" and (r.event ~= "LootMoney") then
-                match = false
-            end
-        end
-        if match then
-            table.insert(out, r)
-        end
-    end
-    return out
-end
 
 --=========================================================================--
 --  Sequenced Roster Batch Queue
@@ -975,9 +841,9 @@ function UnBot:CreateRosterFrame()
     self:CreateRaidView(f)
     self:CreateRolesView(f)
     self:CreateCCView(f)
-    self:CreateLootLogView(f)
 
     local initialTab = (IsInGroup() and "party") or (self.config.activeRosterTab or "account")
+    if initialTab == "lootlog" then initialTab = "account" end
     self:SelectRosterTab(initialTab)
 end
 
@@ -990,17 +856,16 @@ function UnBot:CreateRosterTabs(parent)
     self.rosterTabButtons = {}
     local tabDefs = {
         { id = "account", label = "Account",  offset = 0 },
-        { id = "party",   label = "Party",    offset = 79 },
-        { id = "raid",    label = "Raid",     offset = 158 },
-        { id = "roles",   label = "Roles",    offset = 237 },
-        { id = "cc",      label = "CC Marks", offset = 316 },
-        { id = "lootlog", label = "Loot Log", offset = 395 },
+        { id = "party",   label = "Party",    offset = 95 },
+        { id = "raid",    label = "Raid",     offset = 190 },
+        { id = "roles",   label = "Roles",    offset = 285 },
+        { id = "cc",      label = "CC Marks", offset = 380 },
     }
 
     for i = 1, table.getn(tabDefs) do
         local def = tabDefs[i]
         local btn = CreateFrame("Button", "UnBotRosterTab_" .. def.id, tabBar, "UIPanelButtonTemplate")
-        btn:SetWidth(76)
+        btn:SetWidth(90)
         btn:SetHeight(20)
         btn:SetPoint("LEFT", tabBar, "LEFT", def.offset, 0)
         btn:SetText(def.label)
@@ -1013,6 +878,7 @@ function UnBot:CreateRosterTabs(parent)
 end
 
 function UnBot:SelectRosterTab(tabId)
+    if tabId == "lootlog" then tabId = "account" end
     self.activeRosterTab = tabId
     if self.config then self.config.activeRosterTab = tabId end
 
@@ -1029,7 +895,6 @@ function UnBot:SelectRosterTab(tabId)
     if self.raidView then self.raidView:Hide() end
     if self.rolesView then self.rolesView:Hide() end
     if self.ccView then self.ccView:Hide() end
-    if self.lootLogView then self.lootLogView:Hide() end
 
     if tabId == "account" and self.accountView then
         self.accountView:Show()
@@ -1046,9 +911,6 @@ function UnBot:SelectRosterTab(tabId)
     elseif tabId == "cc" and self.ccView then
         self.ccView:Show()
         self:RefreshCCView()
-    elseif tabId == "lootlog" and self.lootLogView then
-        self.lootLogView:Show()
-        self:RefreshLootLogView()
     end
 end
 
@@ -1059,8 +921,7 @@ function UnBot:RefreshActiveRosterView()
     elseif tab == "party" then self:RefreshPartyView()
     elseif tab == "raid" then self:RefreshRaidView()
     elseif tab == "roles" then self:RefreshRolesView()
-    elseif tab == "cc" then self:RefreshCCView()
-    elseif tab == "lootlog" then self:RefreshLootLogView() end
+    elseif tab == "cc" then self:RefreshCCView() end
 end
 
 --=========================================================================--
@@ -1415,265 +1276,9 @@ function UnBot:CreateBulkButtons(parent)
     MakeBtn("UnBotRosterClearSelection", "Clear", 382, -294, 82, function() UnBot:ClearRosterSelection() end, "Clears selection.")
 end
 
---=========================================================================--
---  Tab 6: Loot Log View (Bot Loot & Roll History)
---=========================================================================--
 
-function UnBot:CreateLootLogView(parent)
-    local v = CreateFrame("Frame", "UnBotLootLogView", parent)
-    v:SetPoint("TOPLEFT", parent, "TOPLEFT", 12, -60)
-    v:SetWidth(476); v:SetHeight(356)
-    self.lootLogView = v
 
-    -- Filters Bar
-    local botSearch = CreateFrame("EditBox", "UnBotLootBotSearch", v, "InputBoxTemplate")
-    botSearch:SetWidth(80); botSearch:SetHeight(20)
-    botSearch:SetPoint("TOPLEFT", v, "TOPLEFT", 6, -4)
-    botSearch:SetAutoFocus(false)
-    botSearch:SetScript("OnTextChanged", function()
-        UnBot.lootBotFilter = this:GetText() or ""
-        UnBot.lootOffset = 0
-        UnBot:RefreshLootLogView()
-    end)
-    v.botSearch = botSearch
 
-    local itemSearch = CreateFrame("EditBox", "UnBotLootItemSearch", v, "InputBoxTemplate")
-    itemSearch:SetWidth(95); itemSearch:SetHeight(20)
-    itemSearch:SetPoint("LEFT", botSearch, "RIGHT", 6, 0)
-    itemSearch:SetAutoFocus(false)
-    itemSearch:SetScript("OnTextChanged", function()
-        UnBot.lootItemFilter = this:GetText() or ""
-        UnBot.lootOffset = 0
-        UnBot:RefreshLootLogView()
-    end)
-    v.itemSearch = itemSearch
-
-    local typeBtn = CreateFrame("Button", "UnBotLootTypeBtn", v, "UIPanelButtonTemplate")
-    typeBtn:SetWidth(56); typeBtn:SetHeight(20)
-    typeBtn:SetPoint("LEFT", itemSearch, "RIGHT", 4, 0)
-    typeBtn:SetText("All")
-    typeBtn:SetScript("OnClick", function()
-        local cur = UnBot.lootTypeFilter or "all"
-        local nextType = "all"
-        if cur == "all" then nextType = "items"
-        elseif cur == "items" then nextType = "rolls"
-        elseif cur == "rolls" then nextType = "money"
-        else nextType = "all" end
-        UnBot.lootTypeFilter = nextType
-        this:SetText(string.upper(string.sub(nextType, 1, 1)) .. string.sub(nextType, 2))
-        UnBot.lootOffset = 0
-        UnBot:RefreshLootLogView()
-    end)
-    v.typeBtn = typeBtn
-
-    local qualBtn = CreateFrame("Button", "UnBotLootQualBtn", v, "UIPanelButtonTemplate")
-    qualBtn:SetWidth(82); qualBtn:SetHeight(20)
-    qualBtn:SetPoint("LEFT", typeBtn, "RIGHT", 4, 0)
-    qualBtn:SetText("Any Qual")
-    qualBtn:SetScript("OnClick", function()
-        local cur = UnBot.lootQualityFilter or -1
-        cur = cur + 1
-        if cur > 4 then cur = -1 end
-        UnBot.lootQualityFilter = cur
-        if cur < 0 then
-            this:SetText("Any Qual")
-        else
-            this:SetText(UnBot:GetLootQualityName(cur))
-        end
-        UnBot.lootOffset = 0
-        UnBot:RefreshLootLogView()
-    end)
-    v.qualBtn = qualBtn
-
-    local syncBtn = CreateFrame("Button", "UnBotLootSyncBtn", v, "UIPanelButtonTemplate")
-    syncBtn:SetWidth(50); syncBtn:SetHeight(20)
-    syncBtn:SetPoint("LEFT", qualBtn, "RIGHT", 4, 0)
-    syncBtn:SetText("Sync")
-    syncBtn:SetScript("OnClick", function()
-        UnBot:RequestLootLog()
-    end)
-
-    local clearBtn = CreateFrame("Button", "UnBotLootClearBtn", v, "UIPanelButtonTemplate")
-    clearBtn:SetWidth(50); clearBtn:SetHeight(20)
-    clearBtn:SetPoint("LEFT", syncBtn, "RIGHT", 4, 0)
-    clearBtn:SetText("Clear")
-    clearBtn:SetScript("OnClick", function()
-        UnBot:ClearLootLog()
-    end)
-
-    -- Column Headers
-    local headers = {
-        { text = "Time", x = 6, width = 50 },
-        { text = "Bot", x = 58, width = 72 },
-        { text = "Loot / Event / Roll", x = 132, width = 210 },
-        { text = "Source", x = 344, width = 100 },
-    }
-    for i = 1, table.getn(headers) do
-        local h = headers[i]
-        local fs = v:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-        fs:SetPoint("TOPLEFT", v, "TOPLEFT", h.x, -28)
-        fs:SetWidth(h.width); fs:SetJustifyH("LEFT")
-        fs:SetText(h.text); fs:SetTextColor(0.6, 0.6, 0.6)
-    end
-
-    -- Rows: 11 rows of height 22
-    local LOOT_ROWS = 11
-    local ROW_H = 22
-    v.rows = {}
-    for i = 1, LOOT_ROWS do
-        local row = CreateFrame("Button", "UnBotLootRow" .. i, v)
-        row:SetWidth(444); row:SetHeight(ROW_H - 2)
-        row:SetPoint("TOPLEFT", v, "TOPLEFT", 4, -46 - (i - 1) * ROW_H)
-        row:RegisterForClicks("LeftButtonUp", "RightButtonUp")
-        row:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight")
-        row:EnableMouseWheel(true)
-        row:SetScript("OnMouseWheel", function()
-            UnBot:ScrollLootLog(-arg1)
-        end)
-
-        local timeText = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-        timeText:SetPoint("LEFT", row, "LEFT", 2, 0); timeText:SetWidth(50); timeText:SetJustifyH("LEFT")
-        row.timeText = timeText
-
-        local botText = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-        botText:SetPoint("LEFT", row, "LEFT", 54, 0); botText:SetWidth(72); botText:SetJustifyH("LEFT")
-        row.botText = botText
-
-        local itemText = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-        itemText:SetPoint("LEFT", row, "LEFT", 128, 0); itemText:SetWidth(210); itemText:SetJustifyH("LEFT")
-        row.itemText = itemText
-
-        local sourceText = row:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-        sourceText:SetPoint("LEFT", row, "LEFT", 340, 0); sourceText:SetWidth(100); sourceText:SetJustifyH("LEFT")
-        row.sourceText = sourceText
-
-        row:SetScript("OnEnter", function()
-            local r = this.lootEntry
-            if not r then return end
-            if r.itemId and tonumber(r.itemId) and r.event ~= "LootMoney" then
-                GameTooltip:SetOwner(this, "ANCHOR_RIGHT")
-                GameTooltip:SetHyperlink("item:" .. r.itemId .. ":0:0:0")
-                GameTooltip:Show()
-            end
-        end)
-        row:SetScript("OnLeave", function() GameTooltip:Hide() end)
-
-        row:SetScript("OnClick", function()
-            local r = this.lootEntry
-            if not r then return end
-            if IsShiftKeyDown and IsShiftKeyDown() and r.itemId and tonumber(r.itemId) and ChatFrameEditBox and ChatFrameEditBox:IsShown() then
-                ChatFrameEditBox:Insert(UnBot:GetLootQualityHex(r.quality) .. "|Hitem:" .. r.itemId .. ":0:0:0|h[" .. (r.item or ("item:" .. r.itemId)) .. "]|h|r")
-            end
-        end)
-
-        v.rows[i] = row
-    end
-
-    local scrollbar = CreateScrollBar(v, "UnBotLootScroll", 454, -46, 16, 238, function(delta)
-        UnBot:ScrollLootLog(delta)
-    end)
-    scrollbar.onValueChanged = function(val)
-        UnBot.lootOffset = val
-        UnBot:RefreshLootLogView()
-    end
-    v.scrollBar = scrollbar
-
-    v:EnableMouseWheel(true)
-    v:SetScript("OnMouseWheel", function()
-        UnBot:ScrollLootLog(-arg1)
-    end)
-
-    local emptyMsg = v:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    emptyMsg:SetPoint("CENTER", v, "CENTER", 0, 0)
-    emptyMsg:SetWidth(420); emptyMsg:SetJustifyH("CENTER")
-    emptyMsg:SetText("|cffd8a657No Loot History Logged|r\n\nParty bots log looted items, coins, and roll decisions here.\nClick [ Sync ] to retrieve server loot records.")
-    v.emptyMsg = emptyMsg
-
-    local countLabel = v:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    countLabel:SetPoint("BOTTOMLEFT", v, "BOTTOMLEFT", 10, 10)
-    countLabel:SetTextColor(0.7, 0.7, 0.7)
-    v.countLabel = countLabel
-end
-
-function UnBot:RefreshLootLogView()
-    if not self.lootLogView or not self.lootLogView:IsShown() then return end
-    local list = self:GetFilteredLoot()
-    local total = table.getn(list)
-    local maxOffset = total - 11
-    if maxOffset < 0 then maxOffset = 0 end
-
-    self.lootOffset = self.lootOffset or 0
-    if self.lootOffset > maxOffset then self.lootOffset = maxOffset end
-    if self.lootOffset < 0 then self.lootOffset = 0 end
-
-    if self.lootLogView.scrollBar then
-        self.lootLogView.scrollBar:Update(self.lootOffset, maxOffset)
-    end
-
-    if total == 0 then
-        self.lootLogView.emptyMsg:Show()
-    else
-        self.lootLogView.emptyMsg:Hide()
-    end
-
-    self.lootLogView.countLabel:SetText("Entries: " .. total)
-
-    for i = 1, 11 do
-        local row = self.lootLogView.rows[i]
-        local r = list[i + self.lootOffset]
-        if r then
-            row.lootEntry = r
-            local _, _, tail = string.find(r.ts or "", "(%d%d:%d%d:%d%d)%s*$")
-            row.timeText:SetText(tail or r.ts or "")
-            row.botText:SetText(r.bot or "")
-            local c = (self.GetClassColor and self:GetClassColor(r.bot)) or {1, 0.82, 0}
-            row.botText:SetTextColor(c[1], c[2], c[3])
-
-            if r.event == "LootMoney" then
-                row.itemText:SetText(self:FormatCopper(r.copper))
-            elseif r.event == "LootRoll" then
-                local vote = VOTE_LABEL[r.vote] or r.vote or "?"
-                local vCol = VOTE_COLOR[r.vote] or "|cffffffff"
-                local reasonStr = r.reason and (" (" .. r.reason .. ")") or ""
-                row.itemText:SetText(vCol .. "[" .. vote .. "]|r " .. self:GetLootQualityHex(r.quality) .. (r.item or "?") .. "|r" .. reasonStr)
-            else
-                row.itemText:SetText(self:GetLootQualityHex(r.quality) .. "[" .. (r.item or ("item #" .. tostring(r.itemId or "?"))) .. "]|r")
-            end
-
-            local src = r.source or ""
-            if src ~= "" then
-                row.sourceText:SetText((r.sourceType or "other") .. ": " .. src)
-            else
-                row.sourceText:SetText(r.sourceType or "")
-            end
-            row:Show()
-        else
-            row.lootEntry = nil
-            row:Hide()
-        end
-    end
-end
-
-function UnBot:ScrollLootLog(delta)
-    local list = self:GetFilteredLoot()
-    local total = table.getn(list)
-    local maxOffset = total - 11
-    if maxOffset < 0 then maxOffset = 0 end
-
-    self.lootOffset = (self.lootOffset or 0) + delta
-    if self.lootOffset < 0 then self.lootOffset = 0 end
-    if self.lootOffset > maxOffset then self.lootOffset = maxOffset end
-    self:RefreshLootLogView()
-end
-
-function UnBot:ShowLootLog()
-    if not UnBotRosterFrame then self:CreateRosterFrame() end
-    if not UnBotRosterFrame:IsShown() then
-        UnBotRosterFrame:Show()
-    end
-    self:SelectRosterTab("lootlog")
-    self:RequestLootLog()
-end
 
 --=========================================================================--
 --  Tab 3: Party View (Active Roles & CC Marks)

@@ -706,9 +706,9 @@ UnBot:RegisterHandler(197, function()
     end
 end)
 
--- [198] Bot Loot History Log
+-- [198] Toggle Roster
 UnBot:RegisterHandler(198, function()
-    UnBot:ToggleRoster("lootlog")
+    UnBot:ToggleRoster()
 end)
 
 -- [199] Mage City Portals
