@@ -12,7 +12,7 @@ tests/
 test/
 t/
 test_*
-docs/
+docs/*
 !docs/images/
 !docs/images/**
 *.tmp
